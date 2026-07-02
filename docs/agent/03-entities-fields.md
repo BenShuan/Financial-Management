@@ -1,9 +1,9 @@
 # Entities and fields
 
 ```yaml
-version: 1.0.0
-last_updated: 2026-04-04
-breaking: "no"
+version: 2.0.0
+last_updated: 2026-07-02
+breaking: "yes"
 ```
 
 Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID strings unless implementation standardizes otherwise.
@@ -13,7 +13,8 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 - **`amount` on `Transaction`:** positive scalar; direction from `type` (`income` / `expense` / `transfer` leg semantics in application layer).
 - **Money columns:** `NUMERIC(18,2)` (or equivalent).
 - **Timestamps:** `timestamptz` UTC.
-- **Soft delete:** prefer `is_active` / `archived_at` on master data (`Account`, `Category`, `Tag`, `CategorizationRule`) where applicable.
+- **Soft delete:** prefer `is_active` / `archived_at` on master data (`Account`, `Category`, `Tag`) where applicable.
+- **Categorization is user-initiated only:** no system process writes `category_id` on transactions or normalized rows.
 
 ---
 
@@ -130,7 +131,7 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 | `status` | yes | enum | cleared / pending |
 | `created_at` | yes | timestamptz | |
 | `merchant_name` | no | string | |
-| `category_id` | no | id | FK → Category; splits may override |
+| `category_id` | conditional | id | FK → Category; **required for `income`/`expense` unless splits exist** (see invariant 5); NULL for `transfer` legs; **user-assigned only** |
 | `notes` | no | text | |
 | `import_batch_id` | no | id | FK |
 | `is_recurring_candidate` | no | boolean | hint from pipeline |
@@ -179,6 +180,15 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 | `color` | no | string | |
 | `sort_order` | no | int | |
 
+### Default categories (seed data)
+
+Seeded per household **at household creation**. After seeding they are plain `Category` rows — the user may rename, re-parent, archive, or delete any of them and add new ones. No system behavior depends on a specific default surviving.
+
+| Kind | Default categories |
+|------|--------------------|
+| `income` | Salary, Bonus, Investment Income, Other Income |
+| `expense` | Housing (children: Rent/Mortgage, Home Maintenance), Utilities, Groceries, Transportation, Dining Out, Health, Insurance, Education & Childcare, Entertainment, Shopping, Subscriptions, Travel, Gifts & Donations, Fees & Charges, Other Expense |
+
 ## Tag
 
 | Field | Required | Type | Notes |
@@ -190,33 +200,20 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 | `color` | no | string | |
 | `is_active` | no | boolean | default true |
 
-## CategorizationRule
-
-| Field | Required | Type | Notes |
-|-------|----------|------|--------|
-| `rule_id` | yes | id | PK |
-| `household_id` | yes | id | FK |
-| `name` | yes | string | |
-| `priority` | yes | int | lower runs first or higher; pick one convention in code and document |
-| `is_enabled` | yes | boolean | |
-| `conditions_json` | yes | jsonb | e.g. description contains, merchant, amount range |
-| `actions_json` | yes | jsonb | set category, add tags |
-| `created_at` | yes | timestamptz | |
-| `last_matched_at` | no | timestamptz | |
-| `match_count` | no | bigint | |
-
 ---
 
 ## BudgetPeriod
+
+Budgets are planned **once per year**; the monthly view is derived, never stored.
 
 | Field | Required | Type | Notes |
 |-------|----------|------|--------|
 | `budget_period_id` | yes | id | PK |
 | `household_id` | yes | id | FK |
-| `month` | yes | string | YYYY-MM |
+| `year` | yes | string | YYYY; unique per household |
 | `status` | yes | enum | draft / active / closed |
 | `created_at` | yes | timestamptz | |
-| `rollover_enabled` | no | boolean | |
+| `rollover_enabled` | no | boolean | year-to-year carryover |
 | `notes` | no | text | |
 
 ## BudgetLine
@@ -226,8 +223,8 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 | `budget_line_id` | yes | id | PK |
 | `budget_period_id` | yes | id | FK |
 | `category_id` | yes | id | FK |
-| `planned_amount` | yes | money | |
-| `rollover_from_previous` | no | money | |
+| `planned_amount` | yes | money | **annual** planned amount for the category; monthly figure derived at read time as `planned_amount / 12` (rounding is a display concern), never stored |
+| `rollover_from_previous` | no | money | from previous **year** |
 | `carryover_adjustment` | no | money | |
 
 ## Goal
@@ -351,8 +348,7 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 | `normalized_payload_json` | yes | jsonb | |
 | `dedupe_fingerprint` | yes | string | |
 | `merchant_name` | no | string | |
-| `suggested_category_id` | no | id | |
-| `confidence_score` | no | decimal | |
+| `category_id` | no | id | FK → Category; **assigned by the user** during import review; required before the row can be promoted to a `Transaction` |
 
 ## ImportMappingTemplate
 
@@ -374,6 +370,8 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 2. **Transfer:** `TransferLink` references two transactions on different accounts (or same account only if product explicitly allows—default **disallow** same account both legs).
 3. **Household scope:** Every child row’s `household_id` (where present) matches parent (`Account.household_id` = `Transaction.household_id` for that account).
 4. **Budget actuals:** Derived from transactions in period; do not duplicate spend totals in `BudgetLine`.
+5. **Mandatory user categorization:** `income`/`expense` transactions must have `category_id` set, or at least one `TransactionSplit` covering the full amount. `transfer` legs carry no category. Categorization is user-initiated only — no system process writes `category_id`.
+6. **Annual budgeting:** Budget amounts are planned annually per category. Monthly breakdowns (`planned_amount / 12`) and actuals are derived at read time, never persisted per month.
 
 ## References
 

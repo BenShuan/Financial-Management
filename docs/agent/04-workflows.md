@@ -1,23 +1,25 @@
 # Workflows
 
 ```yaml
-version: 1.0.0
-last_updated: 2026-04-04
-breaking: "no"
+version: 2.0.0
+last_updated: 2026-07-02
+breaking: "yes"
 ```
 
 ## Household onboarding
 
 1. Create `Household` with `base_currency` and `timezone`.
-2. Invite or add `User` records; create `HouseholdMember` with role.
-3. Create initial `Account` rows with `opening_balance` (and optionally first `AccountBalanceSnapshot`).
+2. **Seed default `Category` rows** for the new household (list in [03-entities-fields.md](03-entities-fields.md)); user may edit or delete them freely afterward.
+3. Invite or add `User` records; create `HouseholdMember` with role.
+4. Create initial `Account` rows with `opening_balance` (and optionally first `AccountBalanceSnapshot`).
 
 ## Manual transaction entry
 
 1. User selects `Account`, enters `type` (income/expense/transfer), `amount` (positive scalar), dates, description.
-2. For **transfer**: create two `Transaction` rows (outflow/inflow) and a `TransferLink` between them; enforce same household and compatible accounts.
-3. Optional: `TransactionSplit` lines summing to transaction `amount`; `TransactionTag` associations.
-4. Emit `AuditEvent` for create/update/delete according to policy in [06-agent-conventions.md](06-agent-conventions.md).
+2. For **income/expense**: user **must select a category** (or provide splits covering the full amount) — the transaction cannot be saved without one; the system never assigns it.
+3. For **transfer**: create two `Transaction` rows (outflow/inflow) and a `TransferLink` between them; enforce same household and compatible accounts; no category on transfer legs.
+4. Optional: `TransactionSplit` lines summing to transaction `amount`; `TransactionTag` associations.
+5. Emit `AuditEvent` for create/update/delete according to policy in [06-agent-conventions.md](06-agent-conventions.md).
 
 ## CSV import
 
@@ -25,8 +27,8 @@ breaking: "no"
 2. Parse rows into `ImportRowRaw` (`raw_payload_json`, `row_index`).
 3. Apply `ImportMappingTemplate` (`column_map_json`) to produce `ImportRowNormalized` (dates, description, amount, `dedupe_fingerprint`).
 4. Detect duplicates against existing transactions or normalized rows (household/account rules TBD in implementation; fingerprint is the hook).
-5. Run enabled `CategorizationRule` set in priority order; attach suggested `category_id` / tags on normalized row or promoted transaction.
-6. User confirms batch; create `Transaction` rows from accepted normalized rows; update `ImportBatch.status` and counts.
+5. User reviews normalized rows and **assigns a category to each** (bulk-assign to multiple rows is allowed); rows without a category cannot be promoted.
+6. User confirms batch; create `Transaction` rows from accepted normalized rows with the **user-assigned categories**; update `ImportBatch.status` and counts.
 
 ## Reconciliation
 
@@ -36,12 +38,13 @@ breaking: "no"
 4. On fix: adjust transactions or add missing rows; recalculate; transition to `resolved` then `closed`.
 5. Optional: write `AccountBalanceSnapshot` at `period_end` with `source` manual or system.
 
-## Budget period lifecycle
+## Budget period lifecycle (annual)
 
-1. Create `BudgetPeriod` for month (YYYY-MM) in `draft` or `active`.
-2. Add `BudgetLine` rows: `category_id`, `planned_amount`, optional rollover fields.
-3. **Actuals** are derived at read time from `Transaction` / splits in that period (not duplicated in budget tables).
-4. Close period: set status to `closed` when household policy requires locking edits.
+1. Create `BudgetPeriod` for a **year** (YYYY) in `draft` or `active` — one planning pass per year.
+2. Add `BudgetLine` rows: `category_id`, **annual** `planned_amount`, optional year-to-year rollover fields.
+3. **Monthly view** shows `planned_amount / 12` per category, derived at read time (rounding is a display concern; nothing stored per month).
+4. **Actuals** are derived at read time from `Transaction` / splits in the month or year (not duplicated in budget tables).
+5. Close period: set status to `closed` at year end or when household policy requires locking edits.
 
 ## Recurring
 

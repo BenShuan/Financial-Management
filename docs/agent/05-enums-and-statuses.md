@@ -1,9 +1,9 @@
 # Enums and statuses
 
 ```yaml
-version: 1.0.0
-last_updated: 2026-04-04
-breaking: "no"
+version: 2.0.0
+last_updated: 2026-07-02
+breaking: "yes"
 ```
 
 Single source of truth for string enums stored in the database or API. Use **lowercase snake_case** values unless an external integration requires otherwise.
@@ -121,15 +121,6 @@ stateDiagram-v2
 6. Reopening a closed session is **out of scope** for v1; create a **new** `ReconciliationSession` if needed.
 
 ---
-
-## CategorizationRule priority
-
-Pick one global convention and stick to it in code:
-
-- **Option A:** Lower `priority` number runs first.
-- **Option B:** Higher `priority` number runs first.
-
-State the choice in the API/implementer README when building the app.
 
 ## References
 

@@ -14,8 +14,8 @@
 | 05 | [05-enums-and-statuses.md](05-enums-and-statuses.md) | Enums, statuses, reconciliation state machine |
 | 06 | [06-agent-conventions.md](06-agent-conventions.md) | How agents must extend and reference these docs |
 
-**V1 in scope:** household access, accounts/ledger, transactions, categories/tags/rules, budgets/goals, recurring, import/reconciliation.
+**V1 in scope:** household access, accounts/ledger, transactions, categories/tags (seeded defaults, **manual categorization by the user**), annual budgets/goals, recurring, import/reconciliation.
 
-**Postponed:** reporting/analytics UI, alerts/insights, document vault.
+**Postponed:** reporting/analytics UI, alerts/insights, document vault, rule-based auto-categorization.
 
 When implementing code, treat conflicts between code and these docs as a **documentation bug** until the docs are updated with a version bump (see `06-agent-conventions.md`).

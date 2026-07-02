@@ -1,9 +1,9 @@
 # Modules
 
 ```yaml
-version: 1.0.0
-last_updated: 2026-04-04
-breaking: "no"
+version: 2.0.0
+last_updated: 2026-07-02
+breaking: "yes"
 ```
 
 Each module maps to a bounded area of the product. Implementation may split across services or packages later; the **domain boundaries** below stay stable.
@@ -20,13 +20,13 @@ Account types (checking, savings, cash, credit, other), opening/current balance 
 
 Authoritative record of **income**, **expense**, and **transfer** postings. Supports splits, tags, optional top-level category, links between transfer legs, and linkage to import batches and recurring matches.
 
-## Categories, Tags & Rules
+## Categories & Tags
 
-Hierarchical categories (income/expense kinds), free-form tags, and **categorization rules** (conditions + actions, priority, enable/disable) to drive semi-automation after import.
+Hierarchical categories (income/expense kinds) **seeded from a default list** at household creation and fully user-editable (rename, re-parent, archive, delete), plus free-form tags. **Categorization is manual:** the user assigns every category; the system never auto-categorizes.
 
 ## Budgeting & Goals
 
-**Budget periods** (e.g. monthly) with **budget lines** per category (planned amounts, optional rollover fields). **Goals** (savings or paydown) with **contributions** linked manually or to transactions where applicable.
+**Annual budget periods**: one planning pass per year with **budget lines** per category holding the **annual planned amount** (optional year-to-year rollover fields). The **monthly view is derived** as annual ÷ 12 at read time. **Goals** (savings or paydown) with **contributions** linked manually or to transactions where applicable.
 
 ## Recurring Payments & Income
 
@@ -34,7 +34,7 @@ Hierarchical categories (income/expense kinds), free-form tags, and **categoriza
 
 ## Import, Normalization & Reconciliation
 
-**Import batches** per account; **raw** then **normalized** rows; **mapping templates** for CSV columns; dedupe fingerprints; promotion to `Transaction` after rules. **Reconciliation** compares statement ending balance to calculated ledger balance for a date range.
+**Import batches** per account; **raw** then **normalized** rows; **mapping templates** for CSV columns; dedupe fingerprints; promotion to `Transaction` after the **user assigns a category to each row**. **Reconciliation** compares statement ending balance to calculated ledger balance for a date range.
 
 ## References
 

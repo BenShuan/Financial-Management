@@ -1,9 +1,9 @@
 # Domain model
 
 ```yaml
-version: 1.0.0
-last_updated: 2026-04-04
-breaking: "no"
+version: 2.0.0
+last_updated: 2026-07-02
+breaking: "yes"
 ```
 
 ## Entity glossary
@@ -21,11 +21,10 @@ breaking: "no"
 | `TransferLink` | Pairs two transactions as one logical transfer. |
 | `TransactionSplit` | Allocates part of one transaction to a category. |
 | `TransactionTag` | Many-to-many link transaction ↔ tag. |
-| `Category` | Hierarchical classification; budget lines attach here. |
+| `Category` | Hierarchical classification, seeded from the default list per household; user-assigned only; budget lines attach here. |
 | `Tag` | Cross-cutting label. |
-| `CategorizationRule` | Condition/action JSON for auto-categorization. |
-| `BudgetPeriod` | Time bucket (e.g. month) for planning. |
-| `BudgetLine` | Planned amount per category within a period. |
+| `BudgetPeriod` | Annual planning bucket (one per year). |
+| `BudgetLine` | Annual planned amount per category within a period; monthly view derived as ÷ 12. |
 | `Goal` | Savings or paydown target. |
 | `GoalContribution` | Movement toward a goal (manual or linked to transaction). |
 | `RecurringTemplate` | Definition of expected recurring cashflow. |
@@ -58,7 +57,6 @@ flowchart TD
 
     Category[Category]
     Tag[Tag]
-    CategorizationRule[CategorizationRule]
 
     BudgetPeriod[BudgetPeriod]
     BudgetLine[BudgetLine]
@@ -90,7 +88,6 @@ flowchart TD
 
     Household --> Category
     Household --> Tag
-    Household --> CategorizationRule
     Category --> BudgetLine
     Category --> TransactionSplit
 
@@ -119,7 +116,7 @@ flowchart LR
     ImportBatch[ImportBatch]
     ImportRowRaw[ImportRowRaw]
     ImportRowNormalized[ImportRowNormalized]
-    Rules[CategorizationRule Engine]
+    UserCategorize[User assigns category]
     Transaction[Transaction]
     Category[Category]
     Tag[Tag]
@@ -132,8 +129,8 @@ flowchart LR
     CsvImport --> ImportBatch
     ImportBatch --> ImportRowRaw
     ImportRowRaw --> ImportRowNormalized
-    ImportRowNormalized --> Rules
-    Rules --> Transaction
+    ImportRowNormalized --> UserCategorize
+    UserCategorize --> Transaction
     Transaction --> Category
     Transaction --> Tag
     Transaction --> TransactionSplit
