@@ -1,0 +1,14 @@
+---
+description: Responsive web app, API usage, no duplicated ledger logic for apps/web
+globs: apps/web/**/*
+alwaysApply: false
+---
+
+# Web client (`apps/web`)
+
+- **UI / styling / Hebrew RTL:** See `.cursor/rules/web-design-system.mdc`.
+- Follow `docs/engineering/00-tech-stack.md` (Vite, React, TypeScript).
+- **Responsive:** Mobile-first layout, usable touch targets, tables/lists that work on small screens.
+- **Data:** Fetch and mutate via the API (typed or generated client). **Do not** implement authoritative ledger, categorization, or reconciliation rules only in the client.
+- **Accessibility:** Semantic HTML, keyboard navigation, visible focus; label form controls.
+- **Env:** Use build-time or runtime config for API base URL; never embed secrets in the bundle.

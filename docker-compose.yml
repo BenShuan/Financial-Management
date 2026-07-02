@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: fm
+      POSTGRES_PASSWORD: fm
+      POSTGRES_DB: financial_management
+    volumes:
+      - fm_pgdata:/var/lib/postgresql/data
+
+volumes:
+  fm_pgdata:

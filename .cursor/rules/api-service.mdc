@@ -1,0 +1,14 @@
+---
+description: REST API, OpenAPI, authz, audit, and DB alignment for apps/api
+globs: apps/api/**/*
+alwaysApply: false
+---
+
+# API service (`apps/api`)
+
+- Follow `docs/engineering/00-tech-stack.md` for runtime (Hono, Drizzle, Node 20+).
+- **Contract:** Expose **OpenAPI 3**; keep spec in sync when routes or schemas change.
+- **Authorization:** Enforce household membership and roles **on the server** for every mutating and sensitive read path. Never rely on the client for authz.
+- **Audit:** Emit `AuditEvent` for operations listed in `docs/agent/06-agent-conventions.md` (transactions, accounts, budgets, imports, member roles, etc.).
+- **Schema:** Migrations and columns must align with `docs/agent/03-entities-fields.md`; add entities/enums in agent docs before or in the same change as schema.
+- **Errors:** Use consistent HTTP status and problem shapes; do not leak internal stack traces to clients in production.

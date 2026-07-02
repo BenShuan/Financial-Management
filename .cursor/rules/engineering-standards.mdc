@@ -1,0 +1,13 @@
+---
+description: Global TypeScript and security standards; align with product scope for money, time, and IDs
+alwaysApply: true
+---
+
+# Global engineering standards
+
+- **Source of truth:** Domain in `docs/agent/` (`00` → `06`); stack and hosting in `docs/engineering/00-tech-stack.md`. Do not contradict domain docs without a doc version bump.
+- **TypeScript:** `strict` on; avoid `any`; prefer explicit types on public APIs.
+- **Money:** Never use IEEE floats for persisted or transferred money amounts; use decimal strings, integer minor units, or DB `NUMERIC` as documented in product scope.
+- **Time:** Persist UTC; UI localizes with household timezone from the domain model.
+- **IDs:** UUID or ULID consistently.
+- **Security:** No secrets in code or committed `.env`; validate input at API boundaries; least privilege for household-scoped data.

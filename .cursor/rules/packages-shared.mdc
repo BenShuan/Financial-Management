@@ -1,0 +1,12 @@
+---
+description: Shared packages — browser-safe types and validation only
+globs: packages/**/*
+alwaysApply: false
+---
+
+# Shared packages (`packages/*`)
+
+- **Purpose:** Types, Zod (or equivalent) schemas, and constants shared by `apps/api` and `apps/web`.
+- **Imports:** No Node-only APIs (`fs`, `path`, etc.) in code consumed by the browser unless the package is explicitly server-only and not depended on by `apps/web`.
+- **Money/time:** Same rules as global standards—no float money; document serialization expectations for API boundaries.
+- **Naming:** Keep package boundaries stable; prefer small, explicit exports over barrel files that hide circular dependencies.

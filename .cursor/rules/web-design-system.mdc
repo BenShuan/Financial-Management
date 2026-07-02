@@ -1,0 +1,43 @@
+description: Typography-first UI tokens, Hebrew RTL, and Tailwind conventions for apps/web
+globs: apps/web/**/*
+alwaysApply: false
+---
+
+# Web design system (`apps/web`)
+
+## Visual language
+
+- **Typography pairing:** `Varela Round` for headings, major labels, and prominent UI copy; `Rubik` for body text, descriptive text, and data-heavy content.
+- **Color system:** use golden-yellow `#FFD25A` as the only accent for active states, highlights, and primary CTAs through semantic tokens (`primary`, `ring`).
+- **Surfaces:** light mode base/card are `#FFFFFF` / `#F5F5F5`; dark mode base/card are `#0D0D0D` / `#1A1A1A`.
+- **Geometry:** high rounding only: cards/containers `24px–32px`; controls (buttons/inputs/nav chips) `16px–20px`.
+- **Depth:** prefer soft, large-spread shadows over visible borders.
+- **Textures:** use low-opacity geometric grid/checkerboard texture in primary containers where it improves depth.
+- **Glass:** overlays/floating surfaces may use `backdrop-filter: blur(10px)` with semi-transparent backgrounds.
+- **Icons:** use outlined line icons with consistent stroke (`1.5px–2px`); active icons get circular accent backgrounds.
+- **Motion:** hover/active states should use smooth `0.3s ease-in-out` transitions.
+- **Tokens:** Use semantic Tailwind colors from CSS variables in `apps/web/src/index.css` — `background`, `foreground`, `card`, `muted`, `border`, `primary`, `destructive`, `ring`, etc. Prefer `positive`, `negative`, `warning` for money / status (supports opacity, e.g. `bg-positive/10`).
+- **Avoid** ad-hoc hex/RGB in components except rare charts; document exceptions if unavoidable.
+
+## Dark mode
+
+- `html` uses class `dark` when the OS prefers dark (`theme.ts` + inline script in `index.html`). Style both `:root` and `.dark` token sets; do not assume light-only contrast.
+
+## Hebrew and RTL
+
+- Document root: **`lang="he"`**, **`dir="rtl"`** (see `index.html`).
+- **User-facing strings:** Hebrew by default, including validation copy in shared Zod schemas consumed by the web app.
+- **Layout:** Prefer **logical** Tailwind utilities — `ms` / `me`, `ps` / `pe`, `text-start` / `text-end`, `rounded-s` / `rounded-e`, and `start` / `end` insets — not physical `ml`/`mr`/`left`/`right` unless the design intentionally stays LTR (e.g. monospace URLs).
+- **Icons:** Chevrons, arrows, and “back” cues may need mirroring (`scale-x-[-1]` or equivalent) so direction matches reading order.
+- **Numbers and money:** Prefer `Intl` with locale `he-IL` (or shared formatters) for amounts and currency; never use floats for persisted money — follow domain/engineering docs.
+
+## Layout and a11y
+
+- Mobile-first; readable forms and lists on narrow screens; adequate touch targets.
+- Semantic HTML, labels on controls, visible focus; check contrast for gold accent on both light and dark surfaces (aim for WCAG AA).
+
+## References
+
+- `apps/web/src/index.css` — design tokens
+- `apps/web/tailwind.config.ts` — theme extensions
+- `.cursor/rules/web-client.mdc` — API and client/server split
