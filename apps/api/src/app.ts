@@ -21,14 +21,24 @@ import { transactionsRouter } from "./routes/transactions.js";
 
 const app = createRouter();
 
+// WEB_ORIGIN may be a comma-separated list (production + preview domains).
+// Normalized so a pasted trailing slash doesn't silently block every request.
+const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, "");
+const allowedOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:5173")
+  .split(",")
+  .map(normalizeOrigin)
+  .filter(Boolean);
+
 app.use(
   "/*",
   cors({
-    // Configured origin in production; any localhost port in dev (Vite may auto-assign one).
+    // Configured origin(s) in production; any localhost port in dev (Vite may auto-assign one).
     origin: (origin) => {
-      const allowed = process.env.WEB_ORIGIN ?? "http://localhost:5173";
-      if (origin === allowed) return origin;
-      return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ? origin : allowed;
+      const normalized = normalizeOrigin(origin);
+      if (allowedOrigins.includes(normalized)) return origin;
+      return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized)
+        ? origin
+        : (allowedOrigins[0] ?? "");
     },
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
