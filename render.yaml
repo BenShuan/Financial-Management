@@ -1,6 +1,8 @@
-# Render Blueprint — API service (see docs/engineering/00-tech-stack.md).
+# Render Blueprint — API service (see docs/engineering/deployment.md).
 # --prod=false: Render sets NODE_ENV=production, which would make pnpm skip
-# the devDependencies needed for the build (typescript, drizzle-kit).
+# the devDependencies needed for the build (typescript).
+# Migrations run at boot (src/db/migrate.ts), so the build needs no DATABASE_URL
+# and drizzle-kit never runs on Render.
 services:
   - type: web
     name: financial-management-api
@@ -8,13 +10,18 @@ services:
     plan: free
     buildCommand: >-
       corepack enable &&
+      corepack prepare pnpm@9.15.0 --activate &&
       pnpm install --frozen-lockfile --prod=false &&
       pnpm --filter @financial-management/shared build &&
-      pnpm --filter @financial-management/api build &&
-      pnpm --filter @financial-management/api db:migrate
-    startCommand: pnpm --filter @financial-management/api start
+      pnpm --filter @financial-management/api build
+    # Plain node: no pnpm/corepack in the runtime path.
+    startCommand: node apps/api/dist/index.js
     healthCheckPath: /api/health
     envVars:
+      # Node 22 LTS: ships corepack (removed in Node 25) with the rotated
+      # pnpm registry keys. engines ">=20" alone would let Render pick latest.
+      - key: NODE_VERSION
+        value: 22.16.0
       - key: DATABASE_URL
         sync: false
       - key: WEB_ORIGIN
