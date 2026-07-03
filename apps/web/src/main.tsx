@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
+import { AccessGate } from "./components/AccessGate";
 import "./index.css";
 import { initSystemColorScheme } from "./theme";
 
@@ -19,7 +20,9 @@ createRoot(rootEl).render(
   <StrictMode>
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <AccessGate>
+          <App />
+        </AccessGate>
       </QueryClientProvider>
     </BrowserRouter>
   </StrictMode>,

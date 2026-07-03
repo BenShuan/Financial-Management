@@ -1,0 +1,23 @@
+# Render Blueprint — API service (see docs/engineering/00-tech-stack.md).
+# --prod=false: Render sets NODE_ENV=production, which would make pnpm skip
+# the devDependencies needed for the build (typescript, drizzle-kit).
+services:
+  - type: web
+    name: financial-management-api
+    runtime: node
+    plan: free
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile --prod=false &&
+      pnpm --filter @financial-management/shared build &&
+      pnpm --filter @financial-management/api build &&
+      pnpm --filter @financial-management/api db:migrate
+    startCommand: pnpm --filter @financial-management/api start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
+      - key: ACCESS_SECRET
+        sync: false

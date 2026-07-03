@@ -2,63 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hearth design tokens — OKLCH triplets consumed as oklch(var(--x) / <alpha>) in tailwind.config.ts */
 @layer base {
   :root {
     color-scheme: light;
-    --background: 0 0% 100%;
-    --foreground: 0 0% 8%;
-    --card: 0 0% 96%;
-    --card-foreground: 0 0% 8%;
-    --popover: 0 0% 96%;
-    --popover-foreground: 0 0% 8%;
-    --primary: 45 100% 68%;
-    --primary-foreground: 0 0% 5%;
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 15%;
-    --muted: 0 0% 94%;
-    --muted-foreground: 0 0% 38%;
-    --accent: 0 0% 94%;
-    --accent-foreground: 0 0% 15%;
-    --destructive: 0 91% 71%;
-    --destructive-foreground: 0 0% 10%;
-    --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 45 100% 68%;
+    --background: 96% 0.02 80;
+    --foreground: 27% 0.03 50;
+    --card: 99% 0.008 80;
+    --card-foreground: 27% 0.03 50;
+    --popover: 99% 0.008 80;
+    --popover-foreground: 27% 0.03 50;
+    --primary: 62% 0.16 38;
+    --primary-foreground: 100% 0 0;
+    --primary-soft: 93% 0.03 40;
+    --primary-strong: 50% 0.15 38;
+    --secondary: 93% 0.025 75;
+    --secondary-foreground: 40% 0.03 55;
+    --muted: 93% 0.025 75;
+    --muted-foreground: 52% 0.02 55;
+    --accent: 93% 0.025 75;
+    --accent-foreground: 40% 0.03 55;
+    --destructive: 58% 0.18 25;
+    --destructive-foreground: 100% 0 0;
+    --border: 89% 0.02 70;
+    --input: 89% 0.02 70;
+    --ring: 62% 0.16 38;
+    --positive: 56% 0.09 155;
+    --positive-soft: 93% 0.04 155;
+    --negative: 58% 0.18 25;
+    --warning: 80% 0.12 82;
+    --info: 60% 0.12 250;
+    --violet: 55% 0.13 320;
     --radius: var(--radius-control);
-    --radius-card: 1.75rem;
-    --radius-control: 1.125rem;
-    --shadow-card: 0 24px 48px -20px rgb(0 0 0 / 0.16);
+    --radius-card: 1.25rem;
+    --radius-control: 0.875rem;
     --transition-interaction: 0.3s ease-in-out;
-    --positive: 142 68% 58%;
-    --negative: 0 91% 71%;
-    --warning: 42 95% 62%;
   }
 
   .dark {
     color-scheme: dark;
-    --background: 0 0% 5%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 45 100% 68%;
-    --primary-foreground: 0 0% 5%;
-    --secondary: 0 0% 13%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 68%;
-    --accent: 0 0% 13%;
-    --accent-foreground: 0 0% 95%;
-    --destructive: 0 91% 71%;
-    --destructive-foreground: 0 0% 6%;
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 45 100% 68%;
-    --shadow-card: 0 28px 52px -20px rgb(0 0 0 / 0.5);
-    --positive: 142 68% 58%;
-    --negative: 0 91% 71%;
-    --warning: 42 95% 62%;
+    --background: 18% 0.015 60;
+    --foreground: 95% 0.01 80;
+    --card: 23% 0.015 60;
+    --card-foreground: 95% 0.01 80;
+    --popover: 23% 0.015 60;
+    --popover-foreground: 95% 0.01 80;
+    --primary: 68% 0.15 40;
+    --primary-foreground: 16% 0.02 50;
+    --primary-soft: 32% 0.05 40;
+    --primary-strong: 82% 0.09 45;
+    --secondary: 28% 0.015 60;
+    --secondary-foreground: 88% 0.01 75;
+    --muted: 28% 0.015 60;
+    --muted-foreground: 70% 0.015 65;
+    --accent: 28% 0.015 60;
+    --accent-foreground: 88% 0.01 75;
+    --destructive: 65% 0.17 27;
+    --destructive-foreground: 16% 0.02 50;
+    --border: 32% 0.015 60;
+    --input: 32% 0.015 60;
+    --ring: 68% 0.15 40;
+    --positive: 65% 0.1 155;
+    --positive-soft: 30% 0.04 155;
+    --negative: 65% 0.17 27;
+    --warning: 78% 0.12 82;
+    --info: 65% 0.12 250;
+    --violet: 62% 0.12 320;
   }
 }
 
@@ -77,30 +86,6 @@
   h4,
   h5,
   h6 {
-    @apply font-display;
-  }
-}
-
-@layer utilities {
-  .bg-architectural-grid {
-    background-image:
-      linear-gradient(to right, rgb(255 255 255 / 0.04) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(255 255 255 / 0.04) 1px, transparent 1px);
-    background-size: 24px 24px;
-  }
-
-  :root .bg-architectural-grid {
-    background-image:
-      linear-gradient(to right, rgb(13 13 13 / 0.06) 1px, transparent 1px),
-      linear-gradient(to bottom, rgb(13 13 13 / 0.06) 1px, transparent 1px);
-  }
-
-  .glass-panel {
-    background-color: rgb(245 245 245 / 0.6);
-    backdrop-filter: blur(10px);
-  }
-
-  .dark .glass-panel {
-    background-color: rgb(26 26 26 / 0.58);
+    @apply font-bold tracking-tight;
   }
 }

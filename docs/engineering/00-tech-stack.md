@@ -1,8 +1,8 @@
 # Engineering — tech stack and monorepo
 
 ```yaml
-version: 1.2.0
-last_updated: 2026-04-04
+version: 1.3.0
+last_updated: 2026-07-03
 breaking: "no"
 ```
 
@@ -72,6 +72,14 @@ New apps (e.g. `apps/admin`) require an update to this document **before** scaff
 
 Limits and pricing change; verify current quotas on each vendor’s site before going live.
 
+### Deployment (live setup)
+
+- **Web:** **Vercel**, root directory `apps/web`, config in `apps/web/vercel.json` (SPA rewrite for React Router, builds `packages/shared` first). Production deploys from `main`; other branches get preview deploys.
+- **API:** **Render** free web service, defined in `render.yaml` (Blueprint). Builds `shared` + `api`, runs Drizzle migrations during build, starts `node dist/index.js`. Production deploys from `main`.
+- **Database:** **Neon** free tier; `DATABASE_URL` set in Render. Seed manually with `pnpm --filter @financial-management/api db:seed` against Neon.
+- **Env vars:** Render — `DATABASE_URL`, `WEB_ORIGIN` (Vercel URL), `ACCESS_SECRET`; Vercel — `VITE_API_ORIGIN` (Render URL).
+- **Access gate (temporary):** until real auth lands, the API requires `Authorization: Bearer $ACCESS_SECRET` on all `/api/*` routes except `/api/health`; the web app prompts once for the key (`AccessGate`) and stores it in localStorage. Remove when session auth replaces the dev-auth stub.
+
 ## What we are not standardizing here
 
 - Additional shadcn components beyond what the app imports (add via CLI as needed).
@@ -80,6 +88,7 @@ Limits and pricing change; verify current quotas on each vendor’s site before 
 
 ## Changelog
 
+- `1.3.0` (2026-07-03): Documented live deployment: Vercel (web), Render (API, `render.yaml`), Neon (DB), temporary `ACCESS_SECRET` gate until real auth.
 - `1.2.0` (2026-04-04): Locked client routing to **React Router** (`react-router-dom` v7) for `apps/web`.
 - `1.1.0` (2026-04-04): Scaffolded monorepo (Turborepo, `packages/api-client`); locked web stack to React 19, TanStack Query, react-hook-form + Zod, shadcn/ui + Tailwind.
 - `1.0.0` (2026-04-04): Initial engineering stack and layout.

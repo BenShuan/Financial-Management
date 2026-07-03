@@ -1,43 +1,51 @@
-description: Typography-first UI tokens, Hebrew RTL, and Tailwind conventions for apps/web
+description: Hearth design system — warm OKLCH tokens, Hebrew RTL, and Tailwind conventions for apps/web
 globs: apps/web/**/*
 alwaysApply: false
 ---
 
-# Web design system (`apps/web`)
+# Web design system — "Hearth" (`apps/web`)
+
+Source design: Claude Design handoff "Hearth UX Plan" (warm, friendly, mobile-first household finance). The prototype is English LTR; the app is **Hebrew RTL** — mirror layouts, keep the visual language.
 
 ## Visual language
 
-- **Typography pairing:** `Varela Round` for headings, major labels, and prominent UI copy; `Rubik` for body text, descriptive text, and data-heavy content.
-- **Color system:** use golden-yellow `#FFD25A` as the only accent for active states, highlights, and primary CTAs through semantic tokens (`primary`, `ring`).
-- **Surfaces:** light mode base/card are `#FFFFFF` / `#F5F5F5`; dark mode base/card are `#0D0D0D` / `#1A1A1A`.
-- **Geometry:** high rounding only: cards/containers `24px–32px`; controls (buttons/inputs/nav chips) `16px–20px`.
-- **Depth:** prefer soft, large-spread shadows over visible borders.
-- **Textures:** use low-opacity geometric grid/checkerboard texture in primary containers where it improves depth.
-- **Glass:** overlays/floating surfaces may use `backdrop-filter: blur(10px)` with semi-transparent backgrounds.
-- **Icons:** use outlined line icons with consistent stroke (`1.5px–2px`); active icons get circular accent backgrounds.
-- **Motion:** hover/active states should use smooth `0.3s ease-in-out` transitions.
-- **Tokens:** Use semantic Tailwind colors from CSS variables in `apps/web/src/index.css` — `background`, `foreground`, `card`, `muted`, `border`, `primary`, `destructive`, `ring`, etc. Prefer `positive`, `negative`, `warning` for money / status (supports opacity, e.g. `bg-positive/10`).
-- **Avoid** ad-hoc hex/RGB in components except rare charts; document exceptions if unavoidable.
+- **Typography:** single family for everything — `"Plus Jakarta Sans", "Heebo", system-ui, sans-serif` (Plus Jakarta Sans has no Hebrew glyphs; Heebo renders the Hebrew). Hierarchy comes from weight, not family: 800 page titles and amounts, 700 headings/row titles, 600 labels and secondary text, 400–500 body.
+- **Color system (OKLCH, via CSS variables in `apps/web/src/index.css`):**
+  - `background` warm cream `oklch(96% 0.02 80)`; `card` near-white `oklch(99% 0.008 80)`; `muted` `oklch(93% 0.025 75)`; `border` `oklch(89% 0.02 70)`.
+  - `foreground` warm ink `oklch(27% 0.03 50)`; `muted-foreground` `oklch(52% 0.02 55)`.
+  - **`primary` ember terracotta `oklch(62% 0.16 38)`** — active nav, primary CTAs, main progress. Soft companion `primary-soft` bg `oklch(93% 0.03 40)` with `primary-strong` text `oklch(50% 0.15 38)` for chips/banners.
+  - Money/status: `negative`/`destructive` red `oklch(58% 0.18 25)` (expenses, over budget, quick-add FAB); `positive` green `oklch(56% 0.09 155)` + `positive-soft` `oklch(93% 0.04 155)` (income, on-track); `warning` amber `oklch(80% 0.12 82)`; `info` blue `oklch(60% 0.12 250)`; `violet` `oklch(55% 0.13 320)` (transfers). These five also serve as category dot colors.
+- **Surfaces & depth:** cards are `bg-card` with a **1px `border`** — prefer visible borders over shadows. Soft *colored* shadows only for the hero card and FAB (e.g. `shadow-[0_14px_30px] shadow-primary/30`).
+- **Geometry:** moderate rounding — cards/containers `rounded-card` (~18–22px), rows/controls `rounded-control` (~12–14px), chips/pills/segmented controls fully rounded (`rounded-full`).
+- **Signature components:** gradient net-worth hero card (`primary` → darker terracotta); grouped list cards (rows inside one rounded bordered card, separated by 1px inner borders); segmented control (muted track, white active segment); progress rings (SVG stroke-dasharray) and thin rounded progress bars; dashed-border upload zone; step progress (thin segment bars); bulk-select bar on `primary-soft`.
+- **Icons:** `lucide-react` outlined icons, stroke `1.5–2`; active bottom-tab icons switch to `primary` color (no circular backgrounds).
+- **Motion:** subtle `0.3s ease-in-out` transitions on hover/active; no large movement.
+- **Tokens only:** use semantic Tailwind colors from the CSS variables (`bg-card`, `text-muted-foreground`, `bg-primary/10`, …). No ad-hoc hex/OKLCH in components except rare charts; document exceptions.
 
 ## Dark mode
 
-- `html` uses class `dark` when the OS prefers dark (`theme.ts` + inline script in `index.html`). Style both `:root` and `.dark` token sets; do not assume light-only contrast.
+- `html.dark` follows OS preference (`theme.ts` + inline script in `index.html`). Dark tokens are warm-dark (same hues, low lightness). Style with semantic tokens so both modes work; check contrast in both.
 
 ## Hebrew and RTL
 
 - Document root: **`lang="he"`**, **`dir="rtl"`** (see `index.html`).
 - **User-facing strings:** Hebrew by default, including validation copy in shared Zod schemas consumed by the web app.
-- **Layout:** Prefer **logical** Tailwind utilities — `ms` / `me`, `ps` / `pe`, `text-start` / `text-end`, `rounded-s` / `rounded-e`, and `start` / `end` insets — not physical `ml`/`mr`/`left`/`right` unless the design intentionally stays LTR (e.g. monospace URLs).
-- **Icons:** Chevrons, arrows, and “back” cues may need mirroring (`scale-x-[-1]` or equivalent) so direction matches reading order.
-- **Numbers and money:** Prefer `Intl` with locale `he-IL` (or shared formatters) for amounts and currency; never use floats for persisted money — follow domain/engineering docs.
+- **Layout:** prefer **logical** Tailwind utilities — `ms`/`me`, `ps`/`pe`, `text-start`/`text-end`, `rounded-s`/`rounded-e`, `start-`/`end-` insets — never physical `ml`/`mr`/`left`/`right` unless intentionally LTR (e.g. monospace numbers/URLs).
+- **Icons:** chevrons, arrows, and "back" cues must mirror in RTL (`rtl:scale-x-[-1]` or logical icon choice).
+- **Numbers and money:** format with shared helpers (`Intl` locale `he-IL`, currency from the household, default ILS). Amounts stay as decimal strings until display; never floats for persisted money. Expenses render in `negative`, income in `positive`.
+
+## Navigation model
+
+- **Mobile (<lg):** bottom tab bar — בית, חשבונות, תקציבים, ייבוא, עוד — plus a quick-add FAB (`negative` red, `rounded-control`) floating above it.
+- **Desktop (≥lg):** right-side sidebar (RTL start side) with household name header and rows for בית, חשבונות, תקציבים, ייבוא, הוראות קבע, משק בית; active row = `primary-soft` bg + `primary-strong` text.
 
 ## Layout and a11y
 
-- Mobile-first; readable forms and lists on narrow screens; adequate touch targets.
-- Semantic HTML, labels on controls, visible focus; check contrast for gold accent on both light and dark surfaces (aim for WCAG AA).
+- Mobile-first; content column max ~`max-w-2xl` on module pages, wider for desktop dashboards.
+- Semantic HTML, labels on controls, visible focus rings (`ring` = primary); adequate touch targets (≥40px); WCAG AA contrast for terracotta on cream in both modes.
 
 ## References
 
-- `apps/web/src/index.css` — design tokens
-- `apps/web/tailwind.config.ts` — theme extensions
+- `apps/web/src/index.css` — design tokens (OKLCH triplets)
+- `apps/web/tailwind.config.ts` — theme wiring
 - `.cursor/rules/web-client.mdc` — API and client/server split
