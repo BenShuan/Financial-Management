@@ -28,7 +28,7 @@ const allowedOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:5173")
   .split(",")
   .map(normalizeOrigin)
   .filter(Boolean);
-
+console.log("allowedOrigins", allowedOrigins, "from WEB_ORIGIN", process.env.WEB_ORIGIN);
 app.use(
   "/*",
   cors({
