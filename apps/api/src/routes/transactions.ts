@@ -11,7 +11,6 @@ import {
 import { db } from "../db/index.js";
 import {
   categories,
-  importRowsNormalized,
   transactionSplits,
   transactionTags,
   transactions,
@@ -473,11 +472,6 @@ transactionsRouter.openapi(
         await db.delete(transactions).where(eq(transactions.transactionId, peerId));
       }
     }
-    // Imported transactions are referenced from their normalized import row — detach first
-    await db
-      .update(importRowsNormalized)
-      .set({ promotedTransactionId: null })
-      .where(eq(importRowsNormalized.promotedTransactionId, transactionId));
     await db.delete(transactions).where(eq(transactions.transactionId, transactionId));
 
     for (const accountId of affectedAccountIds) {
