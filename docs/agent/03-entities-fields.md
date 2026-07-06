@@ -14,7 +14,7 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 - **Money columns:** `NUMERIC(18,2)` (or equivalent).
 - **Timestamps:** `timestamptz` UTC.
 - **Soft delete:** prefer `is_active` / `archived_at` on master data (`Account`, `Category`, `Tag`) where applicable.
-- **Categorization is user-initiated only:** no system process writes `category_id` on transactions or normalized rows.
+- **Categorization is user-initiated only:** no system process writes `category_id` on transactions or normalized rows. CSV import creates transactions with `category_id = NULL` (uncategorized); the user categorizes them later on the Transactions page.
 
 ---
 
@@ -131,7 +131,7 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 | `status` | yes | enum | cleared / pending |
 | `created_at` | yes | timestamptz | |
 | `merchant_name` | no | string | |
-| `category_id` | conditional | id | FK → Category; **required for `income`/`expense` unless splits exist** (see invariant 5); NULL for `transfer` legs; **user-assigned only** |
+| `category_id` | no | id | FK → Category; optional for `income`/`expense` — NULL = uncategorized (e.g. freshly imported); manual entry still requires a category or splits (see invariant 5); NULL for `transfer` legs; **user-assigned only** |
 | `notes` | no | text | |
 | `import_batch_id` | no | id | FK |
 | `is_recurring_candidate` | no | boolean | hint from pipeline |
@@ -348,7 +348,7 @@ Budgets are planned **once per year**; the monthly view is derived, never stored
 | `normalized_payload_json` | yes | jsonb | |
 | `dedupe_fingerprint` | yes | string | |
 | `merchant_name` | no | string | |
-| `category_id` | no | id | FK → Category; **assigned by the user** during import review; required before the row can be promoted to a `Transaction` |
+| `category_id` | no | id | FK → Category; legacy field from the removed review step — promotion is now immediate and uncategorized, so new rows keep this NULL |
 
 ## ImportMappingTemplate
 
@@ -370,7 +370,7 @@ Budgets are planned **once per year**; the monthly view is derived, never stored
 2. **Transfer:** `TransferLink` references two transactions on different accounts (or same account only if product explicitly allows—default **disallow** same account both legs).
 3. **Household scope:** Every child row’s `household_id` (where present) matches parent (`Account.household_id` = `Transaction.household_id` for that account).
 4. **Budget actuals:** Derived from transactions in period; do not duplicate spend totals in `BudgetLine`.
-5. **Mandatory user categorization:** `income`/`expense` transactions must have `category_id` set, or at least one `TransactionSplit` covering the full amount. `transfer` legs carry no category. Categorization is user-initiated only — no system process writes `category_id`.
+5. **User-initiated categorization:** `category_id` on `income`/`expense` is optional — NULL means uncategorized (e.g. freshly imported). Manual entry still requires a category or at least one `TransactionSplit` covering the full amount; when splits exist the header `category_id` is NULL. `transfer` legs never carry a category. Categorization is user-initiated only — no system process ever writes `category_id`.
 6. **Annual budgeting:** Budget amounts are planned annually per category. Monthly breakdowns (`planned_amount / 12`) and actuals are derived at read time, never persisted per month.
 
 ## References

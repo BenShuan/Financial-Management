@@ -4,6 +4,7 @@ import {
   accountSchema,
   budgetActualsSchema,
   budgetPeriodSchema,
+  bulkCategorizeSchema,
   categorySchema,
   createBudgetPeriodSchema,
   createImportBatchSchema,
@@ -11,16 +12,17 @@ import {
   createTransactionSchema,
   importBatchSchema,
   importMappingTemplateSchema,
-  importRowSchema,
   reconciliationSessionSchema,
   sessionContextSchema,
   tagSchema,
   transactionSchema,
-  type CategorizeImportRowsInput,
+  updateTransactionSchema,
+  type BulkCategorizeInput,
   type CreateBudgetPeriodInput,
   type CreateImportBatchInput,
   type CreateReconciliationSessionInput,
   type CreateTransactionInput,
+  type UpdateTransactionInput,
 } from "@financial-management/shared";
 import { apiFetch } from "./client";
 
@@ -66,14 +68,19 @@ export function useTags() {
 export function useTransactions(params: {
   accountId?: string;
   categoryId?: string;
+  uncategorized?: boolean;
+  importBatchId?: string;
   from?: string;
   to?: string;
   search?: string;
   limit?: number;
+  offset?: number;
 }) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== "") query.set(key, String(value));
+    if (value !== undefined && value !== "" && value !== false) {
+      query.set(key, String(value));
+    }
   }
   const qs = query.toString();
   return useQuery({
@@ -101,6 +108,36 @@ export function useCreateTransaction() {
       apiFetch("/api/transactions", transactionSchema, {
         method: "POST",
         body: createTransactionSchema.parse(input),
+      }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateTransaction() {
+  const invalidate = useInvalidateLedger();
+  return useMutation({
+    mutationFn: ({
+      transactionId,
+      input,
+    }: {
+      transactionId: string;
+      input: UpdateTransactionInput;
+    }) =>
+      apiFetch(`/api/transactions/${transactionId}`, transactionSchema, {
+        method: "PATCH",
+        body: updateTransactionSchema.parse(input),
+      }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useBulkCategorize() {
+  const invalidate = useInvalidateLedger();
+  return useMutation({
+    mutationFn: (input: BulkCategorizeInput) =>
+      apiFetch("/api/transactions/bulk-categorize", z.array(transactionSchema), {
+        method: "POST",
+        body: bulkCategorizeSchema.parse(input),
       }),
     onSuccess: invalidate,
   });
@@ -147,19 +184,6 @@ export function useImportBatches() {
   });
 }
 
-const importBatchDetailSchema = z.object({
-  batch: importBatchSchema,
-  rows: z.array(importRowSchema),
-});
-
-export function useImportBatch(batchId: string | undefined) {
-  return useQuery({
-    queryKey: ["imports", batchId],
-    queryFn: () => apiFetch(`/api/imports/${batchId}`, importBatchDetailSchema),
-    enabled: Boolean(batchId),
-  });
-}
-
 export function useImportMappings() {
   return useQuery({
     queryKey: ["import-mappings"],
@@ -168,6 +192,7 @@ export function useImportMappings() {
 }
 
 export function useCreateImportBatch() {
+  const invalidate = useInvalidateLedger();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateImportBatchInput) =>
@@ -176,35 +201,10 @@ export function useCreateImportBatch() {
         body: createImportBatchSchema.parse(input),
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["imports"] });
-      void queryClient.invalidateQueries({ queryKey: ["import-mappings"] });
-    },
-  });
-}
-
-export function useCategorizeImportRows(batchId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: CategorizeImportRowsInput) =>
-      apiFetch(`/api/imports/${batchId}/categorize`, z.array(importRowSchema), {
-        method: "POST",
-        body: input,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["imports", batchId] });
-    },
-  });
-}
-
-export function usePromoteImportBatch(batchId: string) {
-  const invalidate = useInvalidateLedger();
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () =>
-      apiFetch(`/api/imports/${batchId}/promote`, importBatchSchema, { method: "POST" }),
-    onSuccess: () => {
+      // Import now creates transactions directly, so the ledger changes too
       invalidate();
       void queryClient.invalidateQueries({ queryKey: ["imports"] });
+      void queryClient.invalidateQueries({ queryKey: ["import-mappings"] });
     },
   });
 }

@@ -1,13 +1,11 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { asc, count, desc, eq, isNotNull } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import {
-  categorizeImportRowsSchema,
   createImportBatchSchema,
   importBatchSchema,
   importColumnMapSchema,
   importMappingTemplateSchema,
-  importRowSchema,
 } from "@financial-management/shared";
 import { db } from "../db/index.js";
 import {
@@ -25,9 +23,8 @@ import { requireRole } from "../middleware/auth.js";
 import { getHouseholdAccount } from "./accounts.js";
 
 type BatchRow = typeof importBatches.$inferSelect;
-type NormalizedRow = typeof importRowsNormalized.$inferSelect;
 
-function serializeBatch(row: BatchRow) {
+function serializeBatch(row: BatchRow, transactionCount: number) {
   return {
     importBatchId: row.importBatchId,
     householdId: row.householdId,
@@ -38,40 +35,10 @@ function serializeBatch(row: BatchRow) {
     rowCount: row.rowCount,
     duplicateCount: row.duplicateCount,
     errorCount: row.errorCount,
+    transactionCount,
     importedAt: row.importedAt.toISOString(),
   };
 }
-
-function serializeRow(row: NormalizedRow) {
-  return {
-    normalizedRowId: row.normalizedRowId,
-    importBatchId: row.importBatchId,
-    transactionDate: row.transactionDate,
-    description: row.description,
-    merchantName: row.merchantName,
-    amount: row.amount,
-    flow: row.flow === "income" ? ("income" as const) : ("expense" as const),
-    categoryId: row.categoryId,
-    isDuplicate: row.isDuplicate,
-    promotedTransactionId: row.promotedTransactionId,
-  };
-}
-
-async function getHouseholdBatch(householdId: string, importBatchId: string) {
-  const [batch] = await db
-    .select()
-    .from(importBatches)
-    .where(
-      and(
-        eq(importBatches.importBatchId, importBatchId),
-        eq(importBatches.householdId, householdId),
-      ),
-    );
-  if (!batch) throw new HTTPException(404, { message: "אצוות הייבוא לא נמצאה" });
-  return batch;
-}
-
-const batchIdParam = z.object({ batchId: z.string().uuid() });
 
 export const importsRouter = createRouter();
 
@@ -129,7 +96,20 @@ importsRouter.openapi(
       .from(importBatches)
       .where(eq(importBatches.householdId, auth.householdId))
       .orderBy(desc(importBatches.importedAt));
-    return c.json(rows.map(serializeBatch));
+    const counts = await db
+      .select({
+        importBatchId: importRowsNormalized.importBatchId,
+        transactionCount: count(importRowsNormalized.promotedTransactionId),
+      })
+      .from(importRowsNormalized)
+      .where(isNotNull(importRowsNormalized.promotedTransactionId))
+      .groupBy(importRowsNormalized.importBatchId);
+    const countByBatch = new Map(
+      counts.map((row) => [row.importBatchId, row.transactionCount]),
+    );
+    return c.json(
+      rows.map((row) => serializeBatch(row, countByBatch.get(row.importBatchId) ?? 0)),
+    );
   },
 );
 
@@ -138,13 +118,14 @@ importsRouter.openapi(
     method: "post",
     path: "/api/imports",
     tags: ["Import"],
-    summary: "Upload CSV: parse, normalize via column map, dedupe (admin+)",
+    summary:
+      "Upload CSV: parse, normalize via column map, create uncategorized transactions immediately (admin+)",
     request: {
       body: { content: { "application/json": { schema: createImportBatchSchema } } },
     },
     responses: {
       201: {
-        description: "Batch created and normalized, awaiting categorization",
+        description: "Batch applied; transactions created without categories",
         content: { "application/json": { schema: importBatchSchema } },
       },
     },
@@ -174,20 +155,6 @@ importsRouter.openapi(
       mappingTemplateId = template?.mappingTemplateId;
     }
 
-    const [batch] = await db
-      .insert(importBatches)
-      .values({
-        householdId: auth.householdId,
-        accountId: input.accountId,
-        sourceType: "csv",
-        fileName: input.fileName,
-        mappingTemplateId,
-        status: "processing",
-        rowCount: rows.length,
-      })
-      .returning();
-    if (!batch) throw new HTTPException(500, { message: "יצירת האצווה נכשלה" });
-
     // Existing-ledger fingerprints for dedupe (same account)
     const existing = await db
       .select({
@@ -204,210 +171,109 @@ importsRouter.openapi(
       ),
     );
 
+    const errorCount = rows.filter((row) => row.parseError).length;
     let duplicateCount = 0;
-    let errorCount = 0;
     const seenInBatch = new Set<string>();
-    for (const row of rows) {
-      const [rawRow] = await db
-        .insert(importRowsRaw)
-        .values({
-          importBatchId: batch.importBatchId,
-          rowIndex: row.rowIndex,
-          rawPayloadJson: row.raw,
-          parseError: row.parseError,
-        })
-        .returning();
-      if (!rawRow) continue;
-      if (row.parseError) {
-        errorCount++;
-        continue;
-      }
-      const fingerprint = dedupeFingerprint(
-        input.accountId,
-        row.transactionDate,
-        row.amount,
-        row.flow,
-        row.description,
-      );
-      const isDuplicate =
-        existingFingerprints.has(fingerprint) || seenInBatch.has(fingerprint);
-      seenInBatch.add(fingerprint);
-      if (isDuplicate) duplicateCount++;
-      await db.insert(importRowsNormalized).values({
-        importBatchId: batch.importBatchId,
-        rawRowId: rawRow.rawRowId,
-        transactionDate: row.transactionDate,
-        description: row.description,
-        merchantName: row.merchantName,
-        amount: row.amount,
-        flow: row.flow,
-        dedupeFingerprint: fingerprint,
-        isDuplicate,
+    const okRows = rows
+      .filter((row) => !row.parseError)
+      .map((row) => {
+        const fingerprint = dedupeFingerprint(
+          input.accountId,
+          row.transactionDate,
+          row.amount,
+          row.flow,
+          row.description,
+        );
+        const isDuplicate =
+          existingFingerprints.has(fingerprint) || seenInBatch.has(fingerprint);
+        seenInBatch.add(fingerprint);
+        if (isDuplicate) duplicateCount++;
+        return { ...row, fingerprint, isDuplicate };
       });
-    }
 
-    const [updated] = await db
-      .update(importBatches)
-      .set({ duplicateCount, errorCount })
-      .where(eq(importBatches.importBatchId, batch.importBatchId))
-      .returning();
-    return c.json(serializeBatch(updated ?? batch), 201);
-  },
-);
-
-importsRouter.openapi(
-  createRoute({
-    method: "get",
-    path: "/api/imports/{batchId}",
-    tags: ["Import"],
-    summary: "Batch with normalized rows for review",
-    request: { params: batchIdParam },
-    responses: {
-      200: {
-        description: "Batch + rows",
-        content: {
-          "application/json": {
-            schema: z.object({
-              batch: importBatchSchema,
-              rows: z.array(importRowSchema),
-            }),
-          },
-        },
-      },
-    },
-  }),
-  async (c) => {
-    const auth = c.get("auth");
-    const { batchId } = c.req.valid("param");
-    const batch = await getHouseholdBatch(auth.householdId, batchId);
-    const rows = await db
-      .select()
-      .from(importRowsNormalized)
-      .where(eq(importRowsNormalized.importBatchId, batchId))
-      .orderBy(desc(importRowsNormalized.transactionDate));
-    return c.json({ batch: serializeBatch(batch), rows: rows.map(serializeRow) });
-  },
-);
-
-importsRouter.openapi(
-  createRoute({
-    method: "post",
-    path: "/api/imports/{batchId}/categorize",
-    tags: ["Import"],
-    summary: "Assign a category to rows (single or bulk) — always user-initiated",
-    request: {
-      params: batchIdParam,
-      body: { content: { "application/json": { schema: categorizeImportRowsSchema } } },
-    },
-    responses: {
-      200: {
-        description: "Updated rows",
-        content: { "application/json": { schema: z.array(importRowSchema) } },
-      },
-    },
-  }),
-  async (c) => {
-    const auth = c.get("auth");
-    requireRole(auth, "admin");
-    const { batchId } = c.req.valid("param");
-    const input = c.req.valid("json");
-    await getHouseholdBatch(auth.householdId, batchId);
-    const rows = await db
-      .update(importRowsNormalized)
-      .set({ categoryId: input.categoryId })
-      .where(
-        and(
-          eq(importRowsNormalized.importBatchId, batchId),
-          inArray(importRowsNormalized.normalizedRowId, input.rowIds),
-          isNull(importRowsNormalized.promotedTransactionId),
-        ),
-      )
-      .returning();
-    return c.json(rows.map(serializeRow));
-  },
-);
-
-importsRouter.openapi(
-  createRoute({
-    method: "post",
-    path: "/api/imports/{batchId}/promote",
-    tags: ["Import"],
-    summary:
-      "Create transactions from categorized, non-duplicate rows; rows without a category are not promoted",
-    request: { params: batchIdParam },
-    responses: {
-      200: {
-        description: "Batch after promotion",
-        content: { "application/json": { schema: importBatchSchema } },
-      },
-    },
-  }),
-  async (c) => {
-    const auth = c.get("auth");
-    requireRole(auth, "admin");
-    const { batchId } = c.req.valid("param");
-    const batch = await getHouseholdBatch(auth.householdId, batchId);
-    if (batch.status === "completed") {
-      throw new HTTPException(400, { message: "האצווה כבר הוחלה" });
-    }
-
-    const rows = await db
-      .select()
-      .from(importRowsNormalized)
-      .where(
-        and(
-          eq(importRowsNormalized.importBatchId, batchId),
-          eq(importRowsNormalized.isDuplicate, false),
-          isNull(importRowsNormalized.promotedTransactionId),
-        ),
-      );
-
-    let promoted = 0;
-    let skipped = 0;
-    for (const row of rows) {
-      if (!row.categoryId) {
-        skipped++;
-        continue;
-      }
-      const [txn] = await db
-        .insert(transactions)
+    const batch = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(importBatches)
         .values({
           householdId: auth.householdId,
-          accountId: batch.accountId,
-          type: row.flow === "income" ? "income" : "expense",
-          amount: row.amount,
-          transactionDate: row.transactionDate,
-          description: row.description,
-          merchantName: row.merchantName,
-          categoryId: row.categoryId,
-          status: "cleared",
-          importBatchId: batchId,
-          createdBy: auth.userId,
+          accountId: input.accountId,
+          sourceType: "csv",
+          fileName: input.fileName,
+          mappingTemplateId,
+          status: "completed",
+          rowCount: rows.length,
+          duplicateCount,
+          errorCount,
         })
         .returning();
-      if (txn) {
-        await db
-          .update(importRowsNormalized)
-          .set({ promotedTransactionId: txn.transactionId })
-          .where(eq(importRowsNormalized.normalizedRowId, row.normalizedRowId));
-        promoted++;
+      if (!created) throw new HTTPException(500, { message: "יצירת האצווה נכשלה" });
+
+      const rawRows = await tx
+        .insert(importRowsRaw)
+        .values(
+          rows.map((row) => ({
+            importBatchId: created.importBatchId,
+            rowIndex: row.rowIndex,
+            rawPayloadJson: row.raw,
+            parseError: row.parseError,
+          })),
+        )
+        .returning();
+      const rawRowIdByIndex = new Map(rawRows.map((row) => [row.rowIndex, row.rawRowId]));
+
+      if (okRows.length > 0) {
+        // All parseable rows become transactions immediately — uncategorized,
+        // duplicates included (flagged on the normalized row, never skipped).
+        const createdTxns = await tx
+          .insert(transactions)
+          .values(
+            okRows.map((row) => ({
+              householdId: auth.householdId,
+              accountId: input.accountId,
+              type: row.flow,
+              amount: row.amount,
+              transactionDate: row.transactionDate,
+              description: row.description,
+              merchantName: row.merchantName,
+              categoryId: null,
+              status: "cleared" as const,
+              importBatchId: created.importBatchId,
+              createdBy: auth.userId,
+            })),
+          )
+          .returning({ transactionId: transactions.transactionId });
+        await tx.insert(importRowsNormalized).values(
+          okRows.map((row, i) => {
+            const rawRowId = rawRowIdByIndex.get(row.rowIndex);
+            const promotedTransactionId = createdTxns[i]?.transactionId;
+            if (!rawRowId || !promotedTransactionId) {
+              throw new HTTPException(500, { message: "שמירת שורות הייבוא נכשלה" });
+            }
+            return {
+              importBatchId: created.importBatchId,
+              rawRowId,
+              transactionDate: row.transactionDate,
+              description: row.description,
+              merchantName: row.merchantName,
+              amount: row.amount,
+              flow: row.flow,
+              dedupeFingerprint: row.fingerprint,
+              isDuplicate: row.isDuplicate,
+              promotedTransactionId,
+            };
+          }),
+        );
       }
-    }
+      return created;
+    });
 
-    const status = skipped > 0 ? "partially_applied" : "completed";
-    const [updated] = await db
-      .update(importBatches)
-      .set({ status })
-      .where(eq(importBatches.importBatchId, batchId))
-      .returning();
-
-    await recalcAccountBalance(batch.accountId);
+    await recalcAccountBalance(input.accountId);
     await emitAuditEvent(auth, {
       actionType: "import_batch.applied",
       entityType: "import_batch",
-      entityId: batchId,
-      after: { promoted, skipped, status },
+      entityId: batch.importBatchId,
+      after: { created: okRows.length, duplicates: duplicateCount, errors: errorCount },
     });
-    return c.json(serializeBatch(updated ?? batch));
+    return c.json(serializeBatch(batch, okRows.length), 201);
   },
 );

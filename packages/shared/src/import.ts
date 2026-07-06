@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { importBatchStatusSchema, importSourceTypeSchema } from "./enums.js";
-import { positiveMoneySchema } from "./money.js";
 
 export const importColumnMapSchema = z.object({
   /** CSV header names mapped to normalized fields. */
@@ -34,24 +33,11 @@ export const importBatchSchema = z.object({
   rowCount: z.number().int(),
   duplicateCount: z.number().int(),
   errorCount: z.number().int(),
+  /** Transactions created from this batch (rows minus parse errors). */
+  transactionCount: z.number().int(),
   importedAt: z.string(),
 });
 export type ImportBatch = z.infer<typeof importBatchSchema>;
-
-export const importRowSchema = z.object({
-  normalizedRowId: z.string().uuid(),
-  importBatchId: z.string().uuid(),
-  transactionDate: z.string(),
-  description: z.string(),
-  merchantName: z.string().nullable(),
-  /** Positive scalar; flow derived from the mapping sign convention. */
-  amount: positiveMoneySchema,
-  flow: z.enum(["income", "expense"]),
-  categoryId: z.string().uuid().nullable(),
-  isDuplicate: z.boolean(),
-  promotedTransactionId: z.string().uuid().nullable(),
-});
-export type ImportRow = z.infer<typeof importRowSchema>;
 
 export const createImportBatchSchema = z.object({
   accountId: z.string().uuid({ message: "יש לבחור חשבון" }),
@@ -62,9 +48,3 @@ export const createImportBatchSchema = z.object({
   csvText: z.string().min(1, "יש להעלות קובץ CSV"),
 });
 export type CreateImportBatchInput = z.infer<typeof createImportBatchSchema>;
-
-export const categorizeImportRowsSchema = z.object({
-  rowIds: z.array(z.string().uuid()).min(1),
-  categoryId: z.string().uuid({ message: "יש לבחור קטגוריה" }),
-});
-export type CategorizeImportRowsInput = z.infer<typeof categorizeImportRowsSchema>;

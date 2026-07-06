@@ -46,8 +46,10 @@ const splitInputSchema = z.object({
 export type SplitInput = z.infer<typeof splitInputSchema>;
 
 /**
- * Invariant (docs/agent/03, #5): income/expense require a user-chosen category
- * or splits covering the full amount; transfers carry no category and need a peer account.
+ * Invariant (docs/agent/03, #5): manual income/expense entry requires a user-chosen
+ * category or splits covering the full amount; imported transactions start uncategorized
+ * (categoryId null) and are categorized later. Transfers carry no category and need a
+ * peer account. Categorization is always user-initiated — never automatic.
  */
 export const createTransactionSchema = z
   .object({
@@ -124,6 +126,9 @@ export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>;
 export const listTransactionsQuerySchema = z.object({
   accountId: z.string().uuid().optional(),
   categoryId: z.string().uuid().optional(),
+  /** When "true", only transactions without a category; takes precedence over categoryId. */
+  uncategorized: z.enum(["true"]).optional(),
+  importBatchId: z.string().uuid().optional(),
   from: isoDateSchema.optional(),
   to: isoDateSchema.optional(),
   search: z.string().max(120).optional(),
@@ -131,3 +136,9 @@ export const listTransactionsQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 export type ListTransactionsQuery = z.infer<typeof listTransactionsQuerySchema>;
+
+export const bulkCategorizeSchema = z.object({
+  transactionIds: z.array(z.string().uuid()).min(1).max(500),
+  categoryId: z.string().uuid({ message: "יש לבחור קטגוריה" }),
+});
+export type BulkCategorizeInput = z.infer<typeof bulkCategorizeSchema>;

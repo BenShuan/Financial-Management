@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   Ellipsis,
   House,
   Plus,
@@ -22,14 +23,15 @@ interface NavItem {
 const tabItems: NavItem[] = [
   { to: "/", label: "בית", icon: House },
   { to: "/accounts", label: "חשבונות", icon: Wallet },
+  { to: "/transactions", label: "תנועות", icon: ArrowLeftRight },
   { to: "/budgets", label: "תקציבים", icon: Target },
-  { to: "/import", label: "ייבוא", icon: Upload },
   { to: "/more", label: "עוד", icon: Ellipsis },
 ];
 
 const sidebarItems: NavItem[] = [
   { to: "/", label: "בית", icon: House },
   { to: "/accounts", label: "חשבונות", icon: Wallet },
+  { to: "/transactions", label: "תנועות", icon: ArrowLeftRight },
   { to: "/budgets", label: "תקציבים", icon: Target },
   { to: "/import", label: "ייבוא", icon: Upload },
   { to: "/recurring", label: "הוראות קבע", icon: Repeat },

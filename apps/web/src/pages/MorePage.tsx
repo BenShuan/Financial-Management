@@ -1,10 +1,11 @@
-import { ChevronLeft, Repeat, Users } from "lucide-react";
+import { ChevronLeft, Repeat, Upload, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Icon } from "@/components/ui/icon";
 import { ListCard, ListRow } from "@/components/ui/list-card";
 
 const items = [
+  { to: "/import", label: "ייבוא והתאמות", description: "קובץ CSV והתאמת דפי חשבון", icon: Upload },
   { to: "/recurring", label: "הוראות קבע", description: "תבניות ומועדים קרובים", icon: Repeat },
   { to: "/household", label: "משק בית", description: "חברים, קטגוריות והגדרות", icon: Users },
 ];

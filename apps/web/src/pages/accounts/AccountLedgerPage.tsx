@@ -10,18 +10,8 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { ListCard, ListRow } from "@/components/ui/list-card";
 import { colorDotClass } from "@/lib/labels";
-import { formatCurrency, formatDateFull } from "@/lib/money";
+import { dateGroupLabel, formatCurrency } from "@/lib/money";
 import { cn } from "@/lib/utils";
-
-function dateGroupLabel(isoDate: string): string {
-  const today = new Date();
-  const todayIso = today.toISOString().slice(0, 10);
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (isoDate === todayIso) return "היום";
-  if (isoDate === yesterday.toISOString().slice(0, 10)) return "אתמול";
-  return formatDateFull(`${isoDate}T00:00:00`);
-}
 
 export function AccountLedgerPage() {
   const { accountId } = useParams<{ accountId: string }>();

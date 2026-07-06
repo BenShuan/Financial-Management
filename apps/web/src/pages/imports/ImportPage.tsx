@@ -105,7 +105,7 @@ export function ImportPage() {
       csvText,
       saveMappingAs: mappingId ? undefined : "מיפוי אחרון",
     });
-    navigate(`/import/${batch.importBatchId}/review`);
+    navigate(`/transactions?importBatchId=${batch.importBatchId}`);
   };
 
   const openReconciliation = async () => {
@@ -123,14 +123,8 @@ export function ImportPage() {
     <>
       <PageHeader title="ייבוא תנועות" subtitle="קובץ CSV נכנס, יומן מסודר יוצא" />
 
-      {/* Step indicator */}
-      <div className="mb-2 flex items-center gap-1.5">
-        <span className="h-1 flex-1 rounded-full bg-primary" />
-        <span className={cn("h-1 flex-1 rounded-full", csvText ? "bg-primary" : "bg-border")} />
-        <span className="h-1 flex-1 rounded-full bg-border" />
-      </div>
       <p className="mb-4 text-xs font-bold text-muted-foreground">
-        שלב 1 מתוך 3 · העלאה ומיפוי עמודות
+        העלאה ומיפוי עמודות · התנועות ייקלטו מיד ללא קטגוריה, והסיווג נעשה במסך התנועות
       </p>
 
       {/* Upload zone */}
@@ -257,7 +251,7 @@ export function ImportPage() {
             disabled={!mappingComplete || createBatch.isPending}
             onClick={startImport}
           >
-            {createBatch.isPending ? "מעבד…" : "המשך לסקירה"}
+            {createBatch.isPending ? "מעבד…" : "ייבוא התנועות"}
           </Button>
         </>
       ) : null}
@@ -270,7 +264,11 @@ export function ImportPage() {
           </h2>
           <ListCard>
             {batches.data!.map((batch) => (
-              <ListRow as={Link} to={`/import/${batch.importBatchId}/review`} key={batch.importBatchId}>
+              <ListRow
+                as={Link}
+                to={`/transactions?importBatchId=${batch.importBatchId}`}
+                key={batch.importBatchId}
+              >
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary-soft text-primary-strong">
                   <Icon icon={Upload} className="size-4" strokeWidth={1.8} />
                 </span>
@@ -279,7 +277,9 @@ export function ImportPage() {
                     {batch.fileName ?? "ייבוא ידני"}
                   </span>
                   <span className="block text-xs font-medium text-muted-foreground">
-                    {formatDateFull(batch.importedAt)} · {batch.rowCount} שורות
+                    {formatDateFull(batch.importedAt)} · {batch.transactionCount} תנועות
+                    {batch.duplicateCount > 0 ? ` · ${batch.duplicateCount} כפילויות` : ""}
+                    {batch.errorCount > 0 ? ` · ${batch.errorCount} שגיאות` : ""}
                   </span>
                 </span>
                 <Chip

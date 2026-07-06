@@ -83,6 +83,8 @@ Single source of truth for string enums stored in the database or API. Use **low
 | `ImportBatch.source_type` | `csv`, `manual` |
 | `ImportBatch.status` | `pending`, `processing`, `completed`, `failed`, `partially_applied` |
 
+New batches go straight to `completed` (import creates transactions immediately); `pending`, `processing`, and `partially_applied` are retained for legacy data only.
+
 ---
 
 ## ReconciliationSession.status — state machine

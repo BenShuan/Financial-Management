@@ -399,6 +399,7 @@ export const importRowsNormalized = pgTable("import_rows_normalized", {
   categoryId: uuid("category_id").references(() => categories.categoryId),
   promotedTransactionId: uuid("promoted_transaction_id").references(
     () => transactions.transactionId,
+    { onDelete: "set null" },
   ),
   createdAt: createdAt(),
 });

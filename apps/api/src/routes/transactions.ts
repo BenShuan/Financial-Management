@@ -1,7 +1,8 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { and, desc, eq, gte, ilike, inArray, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNull, lte, ne, notExists, or } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import {
+  bulkCategorizeSchema,
   createTransactionSchema,
   listTransactionsQuerySchema,
   transactionSchema,
@@ -9,6 +10,8 @@ import {
 } from "@financial-management/shared";
 import { db } from "../db/index.js";
 import {
+  categories,
+  importRowsNormalized,
   transactionSplits,
   transactionTags,
   transactions,
@@ -139,7 +142,22 @@ transactionsRouter.openapi(
     const q = c.req.valid("query");
     const conditions = [eq(transactions.householdId, auth.householdId)];
     if (q.accountId) conditions.push(eq(transactions.accountId, q.accountId));
-    if (q.categoryId) conditions.push(eq(transactions.categoryId, q.categoryId));
+    if (q.uncategorized) {
+      // Transfers and split headers carry a null categoryId by design — not "uncategorized"
+      conditions.push(isNull(transactions.categoryId));
+      conditions.push(ne(transactions.type, "transfer"));
+      conditions.push(
+        notExists(
+          db
+            .select({ splitId: transactionSplits.splitId })
+            .from(transactionSplits)
+            .where(eq(transactionSplits.transactionId, transactions.transactionId)),
+        ),
+      );
+    } else if (q.categoryId) {
+      conditions.push(eq(transactions.categoryId, q.categoryId));
+    }
+    if (q.importBatchId) conditions.push(eq(transactions.importBatchId, q.importBatchId));
     if (q.from) conditions.push(gte(transactions.transactionDate, q.from));
     if (q.to) conditions.push(lte(transactions.transactionDate, q.to));
     if (q.search) {
@@ -157,6 +175,60 @@ transactionsRouter.openapi(
       .orderBy(desc(transactions.transactionDate), desc(transactions.createdAt))
       .limit(q.limit)
       .offset(q.offset);
+    return c.json(await hydrateTransactions(rows));
+  },
+);
+
+transactionsRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/transactions/bulk-categorize",
+    tags: ["Transactions"],
+    summary: "Assign one category to many transactions (member+); transfers are skipped",
+    request: {
+      body: { content: { "application/json": { schema: bulkCategorizeSchema } } },
+    },
+    responses: {
+      200: {
+        description: "Updated transactions",
+        content: { "application/json": { schema: z.array(transactionSchema) } },
+      },
+    },
+  }),
+  async (c) => {
+    const auth = c.get("auth");
+    requireRole(auth, "member");
+    const input = c.req.valid("json");
+
+    const [category] = await db
+      .select({ categoryId: categories.categoryId })
+      .from(categories)
+      .where(
+        and(
+          eq(categories.categoryId, input.categoryId),
+          eq(categories.householdId, auth.householdId),
+        ),
+      );
+    if (!category) throw new HTTPException(404, { message: "הקטגוריה לא נמצאה" });
+
+    const rows = await db
+      .update(transactions)
+      .set({ categoryId: input.categoryId })
+      .where(
+        and(
+          inArray(transactions.transactionId, input.transactionIds),
+          eq(transactions.householdId, auth.householdId),
+          ne(transactions.type, "transfer"),
+        ),
+      )
+      .returning();
+
+    await emitAuditEvent(auth, {
+      actionType: "transaction.bulk_categorized",
+      entityType: "transaction",
+      entityId: input.categoryId,
+      after: { count: rows.length, categoryId: input.categoryId },
+    });
     return c.json(await hydrateTransactions(rows));
   },
 );
@@ -285,19 +357,7 @@ transactionsRouter.openapi(
     const input = c.req.valid("json");
     const before = await getHouseholdTransaction(auth.householdId, transactionId);
 
-    // Invariant 5: an income/expense without splits must keep a category
-    if (before.type !== "transfer" && input.categoryId === null) {
-      const existingSplits = await db
-        .select({ splitId: transactionSplits.splitId })
-        .from(transactionSplits)
-        .where(eq(transactionSplits.transactionId, transactionId))
-        .limit(1);
-      if (existingSplits.length === 0) {
-        throw new HTTPException(400, {
-          message: "לא ניתן להסיר קטגוריה מתנועה ללא פיצולים",
-        });
-      }
-    }
+    // Invariant 5: null categoryId = uncategorized, a legitimate state (e.g. imports)
     if (before.type === "transfer" && input.categoryId) {
       throw new HTTPException(400, { message: "העברה אינה מקבלת קטגוריה" });
     }
@@ -413,6 +473,11 @@ transactionsRouter.openapi(
         await db.delete(transactions).where(eq(transactions.transactionId, peerId));
       }
     }
+    // Imported transactions are referenced from their normalized import row — detach first
+    await db
+      .update(importRowsNormalized)
+      .set({ promotedTransactionId: null })
+      .where(eq(importRowsNormalized.promotedTransactionId, transactionId));
     await db.delete(transactions).where(eq(transactions.transactionId, transactionId));
 
     for (const accountId of affectedAccountIds) {

@@ -52,3 +52,14 @@ export function formatDateFull(iso: string, timeZone?: string): string {
     timeZone,
   }).format(new Date(iso));
 }
+
+/** Group heading for ledger lists: "היום" / "אתמול" / full date. Expects yyyy-MM-dd. */
+export function dateGroupLabel(isoDate: string): string {
+  const today = new Date();
+  const todayIso = today.toISOString().slice(0, 10);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (isoDate === todayIso) return "היום";
+  if (isoDate === yesterday.toISOString().slice(0, 10)) return "אתמול";
+  return formatDateFull(`${isoDate}T00:00:00`);
+}

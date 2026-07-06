@@ -1,0 +1,3 @@
+ALTER TABLE "import_rows_normalized" DROP CONSTRAINT "import_rows_normalized_promoted_transaction_id_transactions_transaction_id_fk";
+--> statement-breakpoint
+ALTER TABLE "import_rows_normalized" ADD CONSTRAINT "import_rows_normalized_promoted_transaction_id_transactions_transaction_id_fk" FOREIGN KEY ("promoted_transaction_id") REFERENCES "public"."transactions"("transaction_id") ON DELETE set null ON UPDATE no action;

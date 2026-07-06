@@ -26,9 +26,9 @@ breaking: "yes"
 1. User uploads file; create `ImportBatch` for target `Account`.
 2. Parse rows into `ImportRowRaw` (`raw_payload_json`, `row_index`).
 3. Apply `ImportMappingTemplate` (`column_map_json`) to produce `ImportRowNormalized` (dates, description, amount, `dedupe_fingerprint`).
-4. Detect duplicates against existing transactions or normalized rows (household/account rules TBD in implementation; fingerprint is the hook).
-5. User reviews normalized rows and **assigns a category to each** (bulk-assign to multiple rows is allowed); rows without a category cannot be promoted.
-6. User confirms batch; create `Transaction` rows from accepted normalized rows with the **user-assigned categories**; update `ImportBatch.status` and counts.
+4. Detect duplicates against existing transactions and within the batch (fingerprint); duplicates are **flagged, not skipped**.
+5. Create `Transaction` rows **immediately** from all parseable normalized rows — **uncategorized** (`category_id = NULL`), duplicates included; set `ImportBatch.status = completed` and counts; recalculate account balance.
+6. User categorizes later on the **Transactions page** (`/transactions`): inline per-row category select or bulk-assign to selected rows. Categorization stays user-initiated only.
 
 ## Reconciliation
 
