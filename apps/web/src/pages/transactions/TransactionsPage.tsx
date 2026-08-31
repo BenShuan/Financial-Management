@@ -1,5 +1,5 @@
-import { ArrowLeftRight, Check, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { ArrowLeftRight, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Category, Transaction } from "@financial-management/shared";
 import {
@@ -11,19 +11,14 @@ import {
   useUpdateTransaction,
 } from "@/api/hooks";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { AmountText } from "@/components/ui/amount-text";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
-import { ListCard, ListRow } from "@/components/ui/list-card";
-import { colorDotClass } from "@/lib/labels";
-import { dateGroupLabel } from "@/lib/money";
+import { CategoryCodeLegend } from "@/components/transactions/CategoryCodeLegend";
+import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { cn } from "@/lib/utils";
 
 const MONTH_LABEL = new Intl.DateTimeFormat("he-IL", { month: "long", year: "numeric" });
-
-const inlineSelectClass =
-  "h-8 max-w-36 shrink-0 truncate rounded-control border border-input bg-card px-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
 
 type MonthFilter = { year: number; month: number } | null;
 
@@ -171,9 +166,8 @@ export function TransactionsPage() {
         </button>
       </div>
 
-      {/* Category filter chips */}
-      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-        {importBatchId ? (
+      {importBatchId ? (
+        <div className="mb-3">
           <button
             type="button"
             onClick={() => setSearchParams({}, { replace: true })}
@@ -182,242 +176,90 @@ export function TransactionsPage() {
             ייבוא אחרון
             <Icon icon={X} className="size-3" strokeWidth={2.5} />
           </button>
-        ) : null}
-        <FilterChip active={categoryFilter === ""} onClick={() => setCategoryFilter("")}>
-          הכל
-        </FilterChip>
-        <FilterChip
-          active={categoryFilter === "uncategorized"}
-          onClick={() => setCategoryFilter("uncategorized")}
-        >
-          ללא קטגוריה
-        </FilterChip>
-        {activeCategories.map((cat) => (
-          <FilterChip
-            key={cat.categoryId}
-            active={categoryFilter === cat.categoryId}
-            onClick={() => setCategoryFilter(cat.categoryId)}
-          >
-            <span className={cn("size-2 rounded-sm", colorDotClass(cat.color))} />
-            {cat.name}
-          </FilterChip>
-        ))}
-      </div>
-
-      {/* Bulk-assign bar */}
-      {selected.size > 0 ? (
-        <div className="sticky top-2 z-10 mb-3 flex items-center gap-2 rounded-control bg-primary-soft p-2.5">
-          <span className="flex-1 text-sm font-bold text-primary-strong">
-            {selected.size} נבחרו
-          </span>
-          <select
-            value={bulkCategoryId}
-            onChange={(e) => setBulkCategoryId(e.target.value)}
-            className="h-9 rounded-full border-0 bg-primary px-3 text-sm font-extrabold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="בחירת קטגוריה לתנועות שנבחרו"
-          >
-            <option value="">בחרו קטגוריה ▾</option>
-            {activeCategories.map((cat) => (
-              <option key={cat.categoryId} value={cat.categoryId}>
-                {cat.parentCategoryId ? `— ${cat.name}` : cat.name}
-              </option>
-            ))}
-          </select>
-          <Button
-            size="sm"
-            onClick={assignBulk}
-            disabled={!bulkCategoryId || bulkCategorize.isPending}
-          >
-            {bulkCategorize.isPending ? "משייך…" : "שיוך"}
-          </Button>
         </div>
       ) : null}
 
-      {/* List toolbar */}
-      {selectableIds.length > 0 ? (
-        <div className="mb-2 flex items-center justify-between px-1">
-          <span className="text-xs font-bold text-muted-foreground">
-            {transactions.data?.length ?? 0} תנועות
-          </span>
-          <button
-            type="button"
-            onClick={toggleAll}
-            className="text-xs font-bold text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {selected.size === selectableIds.length ? "ניקוי בחירה" : "בחירת הכל"}
-          </button>
-        </div>
-      ) : null}
-
-      {transactions.isPending ? (
-        <p className="text-sm font-semibold text-muted-foreground">טוען תנועות…</p>
-      ) : groups.length === 0 ? (
-        <EmptyState
-          icon={ArrowLeftRight}
-          title="אין תנועות בסינון הזה"
-          description="נסו חודש אחר, קטגוריה אחרת או ייבאו קובץ חדש."
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+        <CategoryCodeLegend
+          categories={activeCategories}
+          categoryFilter={categoryFilter}
+          onFilterChange={setCategoryFilter}
         />
-      ) : (
-        <div className="flex flex-col gap-4">
-          {groups.map(([date, txns]) => (
-            <section key={date}>
-              <h2 className="mb-2 ms-1 text-xs font-bold text-muted-foreground">
-                {dateGroupLabel(date)}
-              </h2>
-              <ListCard>
-                {txns.map((txn) => (
-                  <EditableTransactionRow
-                    key={txn.transactionId}
-                    txn={txn}
-                    categoryById={categoryById}
-                    accountName={accountNameById.get(txn.accountId)}
-                    activeCategories={activeCategories}
-                    currency={currency}
-                    selected={selected.has(txn.transactionId)}
-                    onToggle={() => toggleRow(txn.transactionId)}
-                    onCategoryChange={(categoryId) =>
-                      updateTransaction.mutate({
-                        transactionId: txn.transactionId,
-                        input: { categoryId },
-                      })
-                    }
-                    updating={
-                      updateTransaction.isPending &&
-                      updateTransaction.variables?.transactionId === txn.transactionId
-                    }
-                  />
+
+        <div className="min-w-0 flex-1">
+          {/* Bulk-assign bar */}
+          {selected.size > 0 ? (
+            <div className="sticky top-2 z-10 mb-3 flex items-center gap-2 rounded-control bg-primary-soft p-2.5">
+              <span className="flex-1 text-sm font-bold text-primary-strong">
+                {selected.size} נבחרו
+              </span>
+              <select
+                value={bulkCategoryId}
+                onChange={(e) => setBulkCategoryId(e.target.value)}
+                className="h-9 rounded-full border-0 bg-primary px-3 text-sm font-extrabold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="בחירת קטגוריה לתנועות שנבחרו"
+              >
+                <option value="">בחרו קטגוריה ▾</option>
+                {activeCategories.map((cat) => (
+                  <option key={cat.categoryId} value={cat.categoryId}>
+                    {cat.parentCategoryId ? `— ${cat.name}` : cat.name}
+                  </option>
                 ))}
-              </ListCard>
-            </section>
-          ))}
+              </select>
+              <Button
+                size="sm"
+                onClick={assignBulk}
+                disabled={!bulkCategoryId || bulkCategorize.isPending}
+              >
+                {bulkCategorize.isPending ? "משייך…" : "שיוך"}
+              </Button>
+            </div>
+          ) : null}
+
+          {/* List toolbar */}
+          {selectableIds.length > 0 ? (
+            <div className="mb-2 flex items-center justify-between px-1">
+              <span className="text-xs font-bold text-muted-foreground">
+                {transactions.data?.length ?? 0} תנועות
+              </span>
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="text-xs font-bold text-primary-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {selected.size === selectableIds.length ? "ניקוי בחירה" : "בחירת הכל"}
+              </button>
+            </div>
+          ) : null}
+
+          {transactions.isPending ? (
+            <p className="text-sm font-semibold text-muted-foreground">טוען תנועות…</p>
+          ) : groups.length === 0 ? (
+            <EmptyState
+              icon={ArrowLeftRight}
+              title="אין תנועות בסינון הזה"
+              description="נסו חודש אחר, קטגוריה אחרת או ייבאו קובץ חדש."
+            />
+          ) : (
+            <TransactionsTable
+              groups={groups}
+              categoryById={categoryById}
+              accountNameById={accountNameById}
+              activeCategories={activeCategories}
+              currency={currency}
+              selected={selected}
+              selectableIds={selectableIds}
+              onToggleRow={toggleRow}
+              onCategoryChange={(transactionId, categoryId) =>
+                updateTransaction.mutate({ transactionId, input: { categoryId } })
+              }
+              pendingTransactionId={
+                updateTransaction.isPending ? updateTransaction.variables?.transactionId : undefined
+              }
+            />
+          )}
         </div>
-      )}
+      </div>
     </>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        active
-          ? "bg-primary text-primary-foreground"
-          : "bg-muted text-secondary-foreground hover:bg-primary-soft",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function EditableTransactionRow({
-  txn,
-  categoryById,
-  accountName,
-  activeCategories,
-  currency,
-  selected,
-  onToggle,
-  onCategoryChange,
-  updating,
-}: {
-  txn: Transaction;
-  categoryById: Map<string, Category>;
-  accountName?: string;
-  activeCategories: Category[];
-  currency?: string;
-  selected: boolean;
-  onToggle: () => void;
-  onCategoryChange: (categoryId: string | null) => void;
-  updating: boolean;
-}) {
-  const category = txn.categoryId ? categoryById.get(txn.categoryId) : undefined;
-  const selectable = txn.type !== "transfer" && txn.splits.length === 0;
-  const dotColor = txn.type === "transfer" ? "violet" : category?.color;
-
-  // Category options match the row's flow; keep an inactive assigned category visible
-  const options = activeCategories.filter((cat) => cat.kind === txn.type);
-  const assignedMissing =
-    category && !options.some((cat) => cat.categoryId === category.categoryId);
-
-  return (
-    <ListRow>
-      {selectable ? (
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={selected}
-          aria-label={`בחירת ${txn.description}`}
-          onClick={onToggle}
-          className={cn(
-            "flex size-[18px] shrink-0 items-center justify-center rounded-md border-2 transition-colors",
-            selected ? "border-primary bg-primary" : "border-border bg-card",
-          )}
-        >
-          {selected ? (
-            <Icon icon={Check} className="size-3 text-primary-foreground" strokeWidth={3} />
-          ) : null}
-        </button>
-      ) : (
-        <span className="size-[18px] shrink-0 rounded-md border-2 border-border/50" aria-hidden />
-      )}
-      <span className={cn("size-8 shrink-0 rounded-[10px]", colorDotClass(dotColor))} />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold">{txn.description}</span>
-        <span className="block truncate text-xs font-medium text-muted-foreground">
-          {accountName ?? ""}
-          {txn.status === "pending" ? " · ממתין" : ""}
-        </span>
-      </span>
-      {txn.type === "transfer" ? (
-        <span className="shrink-0 text-xs font-bold text-muted-foreground">העברה</span>
-      ) : txn.splits.length > 0 ? (
-        <span className="shrink-0 text-xs font-bold text-muted-foreground">
-          {txn.splits.length} פיצולים
-        </span>
-      ) : (
-        <select
-          value={txn.categoryId ?? ""}
-          onChange={(e) => onCategoryChange(e.target.value || null)}
-          disabled={updating}
-          className={cn(
-            inlineSelectClass,
-            !txn.categoryId && "border-dashed border-primary/50 text-primary-strong",
-          )}
-          aria-label={`קטגוריה עבור ${txn.description}`}
-        >
-          <option value="">ללא קטגוריה</option>
-          {assignedMissing && category ? (
-            <option value={category.categoryId}>{category.name}</option>
-          ) : null}
-          {options.map((cat) => (
-            <option key={cat.categoryId} value={cat.categoryId}>
-              {cat.parentCategoryId ? `— ${cat.name}` : cat.name}
-            </option>
-          ))}
-        </select>
-      )}
-      <AmountText
-        amount={
-          txn.type === "transfer" && txn.transferDirection === "out"
-            ? `-${txn.amount}`
-            : txn.amount
-        }
-        flow={txn.type === "transfer" ? "neutral" : txn.type}
-        currency={currency}
-        className="text-sm"
-      />
-    </ListRow>
   );
 }

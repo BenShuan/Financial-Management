@@ -15,6 +15,13 @@
       "when": 1783367889412,
       "tag": "0001_uneven_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788206256433,
+      "tag": "0002_add_category_code",
+      "breakpoints": true
     }
   ]
 }

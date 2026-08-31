@@ -134,6 +134,7 @@ export const categories = pgTable("categories", {
   parentCategoryId: uuid("parent_category_id"),
   icon: text("icon"),
   color: text("color"),
+  code: text("code"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: createdAt(),

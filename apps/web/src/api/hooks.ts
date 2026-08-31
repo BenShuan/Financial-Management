@@ -16,12 +16,14 @@ import {
   sessionContextSchema,
   tagSchema,
   transactionSchema,
+  updateCategorySchema,
   updateTransactionSchema,
   type BulkCategorizeInput,
   type CreateBudgetPeriodInput,
   type CreateImportBatchInput,
   type CreateReconciliationSessionInput,
   type CreateTransactionInput,
+  type UpdateCategoryInput,
   type UpdateTransactionInput,
 } from "@financial-management/shared";
 import { apiFetch } from "./client";
@@ -54,6 +56,20 @@ export function useCategories() {
     queryKey: ["categories"],
     queryFn: () => apiFetch("/api/categories", z.array(categorySchema)),
     staleTime: 60 * 1000,
+  });
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ categoryId, input }: { categoryId: string; input: UpdateCategoryInput }) =>
+      apiFetch(`/api/categories/${categoryId}`, categorySchema, {
+        method: "PATCH",
+        body: updateCategorySchema.parse(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
   });
 }
 

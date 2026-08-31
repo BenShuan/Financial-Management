@@ -27,29 +27,41 @@ type SeedCategory = {
   name: string;
   kind: "income" | "expense";
   color: string;
-  children?: string[];
+  code: string;
+  children?: { name: string; code: string }[];
 };
 
+// Codes double as the keyboard shortcut used on the transactions page: a
+// Hebrew letter per income category, a sequential number per expense category.
 const SEED_CATEGORIES: SeedCategory[] = [
-  { name: "משכורת", kind: "income", color: "positive" },
-  { name: "בונוס", kind: "income", color: "positive" },
-  { name: "הכנסות מהשקעות", kind: "income", color: "info" },
-  { name: "הכנסה אחרת", kind: "income", color: "positive" },
-  { name: "דיור", kind: "expense", color: "primary", children: ["שכירות / משכנתא", "תחזוקת בית"] },
-  { name: "חשבונות ושירותים", kind: "expense", color: "warning" },
-  { name: "מכולת", kind: "expense", color: "info" },
-  { name: "תחבורה", kind: "expense", color: "positive" },
-  { name: "אוכל בחוץ", kind: "expense", color: "violet" },
-  { name: "בריאות", kind: "expense", color: "negative" },
-  { name: "ביטוח", kind: "expense", color: "info" },
-  { name: "חינוך וילדים", kind: "expense", color: "warning" },
-  { name: "בילויים", kind: "expense", color: "violet" },
-  { name: "קניות", kind: "expense", color: "primary" },
-  { name: "מנויים", kind: "expense", color: "violet" },
-  { name: "נסיעות", kind: "expense", color: "info" },
-  { name: "מתנות ותרומות", kind: "expense", color: "positive" },
-  { name: "עמלות", kind: "expense", color: "negative" },
-  { name: "הוצאה אחרת", kind: "expense", color: "warning" },
+  { name: "משכורת", kind: "income", color: "positive", code: "מ" },
+  { name: "בונוס", kind: "income", color: "positive", code: "ב" },
+  { name: "הכנסות מהשקעות", kind: "income", color: "info", code: "ה" },
+  { name: "הכנסה אחרת", kind: "income", color: "positive", code: "כ" },
+  {
+    name: "דיור",
+    kind: "expense",
+    color: "primary",
+    code: "1",
+    children: [
+      { name: "שכירות / משכנתא", code: "2" },
+      { name: "תחזוקת בית", code: "3" },
+    ],
+  },
+  { name: "חשבונות ושירותים", kind: "expense", color: "warning", code: "4" },
+  { name: "מכולת", kind: "expense", color: "info", code: "5" },
+  { name: "תחבורה", kind: "expense", color: "positive", code: "6" },
+  { name: "אוכל בחוץ", kind: "expense", color: "violet", code: "7" },
+  { name: "בריאות", kind: "expense", color: "negative", code: "8" },
+  { name: "ביטוח", kind: "expense", color: "info", code: "9" },
+  { name: "חינוך וילדים", kind: "expense", color: "warning", code: "10" },
+  { name: "בילויים", kind: "expense", color: "violet", code: "11" },
+  { name: "קניות", kind: "expense", color: "primary", code: "12" },
+  { name: "מנויים", kind: "expense", color: "violet", code: "13" },
+  { name: "נסיעות", kind: "expense", color: "info", code: "14" },
+  { name: "מתנות ותרומות", kind: "expense", color: "positive", code: "15" },
+  { name: "עמלות", kind: "expense", color: "negative", code: "16" },
+  { name: "הוצאה אחרת", kind: "expense", color: "warning", code: "17" },
 ];
 
 function isoDaysAgo(days: number): string {
@@ -98,24 +110,26 @@ async function seed() {
         name: cat.name,
         kind: cat.kind,
         color: cat.color,
+        code: cat.code,
         sortOrder: sortOrder++,
       })
       .returning();
     if (!parent) continue;
     categoryIdByName.set(cat.name, parent.categoryId);
-    for (const childName of cat.children ?? []) {
-      const [child] = await db
+    for (const child of cat.children ?? []) {
+      const [row] = await db
         .insert(categories)
         .values({
           householdId: household.householdId,
-          name: childName,
+          name: child.name,
           kind: cat.kind,
           color: cat.color,
+          code: child.code,
           parentCategoryId: parent.categoryId,
           sortOrder: sortOrder++,
         })
         .returning();
-      if (child) categoryIdByName.set(childName, child.categoryId);
+      if (row) categoryIdByName.set(child.name, row.categoryId);
     }
   }
 
