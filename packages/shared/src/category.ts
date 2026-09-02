@@ -9,6 +9,7 @@ export const categorySchema = z.object({
   parentCategoryId: z.string().uuid().nullable(),
   color: z.string().nullable(),
   icon: z.string().nullable(),
+  code: z.string().nullable(),
   sortOrder: z.number().int(),
   isActive: z.boolean(),
 });
@@ -22,6 +23,16 @@ export const createCategorySchema = z.object({
   icon: z.string().optional(),
 });
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
+
+export const updateCategorySchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(1, "יש להזין קוד")
+    .max(3, "קוד יכול לכלול עד 3 תווים")
+    .nullable(),
+});
+export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 
 export const tagSchema = z.object({
   tagId: z.string().uuid(),
