@@ -361,6 +361,26 @@ transactionsRouter.openapi(
       throw new HTTPException(400, { message: "העברה אינה מקבלת קטגוריה" });
     }
 
+    // A category's kind (income/expense) defines the transaction's type: assigning an
+    // income category to an expense row (or vice versa) reclassifies the row to match.
+    let type = before.type;
+    if (input.categoryId) {
+      const [category] = await db
+        .select({ kind: categories.kind })
+        .from(categories)
+        .where(
+          and(
+            eq(categories.categoryId, input.categoryId),
+            eq(categories.householdId, auth.householdId),
+          ),
+        );
+      if (!category) throw new HTTPException(404, { message: "הקטגוריה לא נמצאה" });
+      if (category.kind === "transfer_neutral") {
+        throw new HTTPException(400, { message: "לא ניתן לשייך קטגוריה זו לתנועה" });
+      }
+      type = category.kind;
+    }
+
     const [row] = await db
       .update(transactions)
       .set({
@@ -369,6 +389,7 @@ transactionsRouter.openapi(
         description: input.description,
         merchantName: input.merchantName,
         categoryId: input.categoryId,
+        type,
         status: input.status,
         notes: input.notes,
       })
@@ -417,8 +438,8 @@ transactionsRouter.openapi(
       actionType: "transaction.updated",
       entityType: "transaction",
       entityId: transactionId,
-      before: { amount: before.amount, categoryId: before.categoryId },
-      after: { amount: row.amount, categoryId: row.categoryId },
+      before: { amount: before.amount, categoryId: before.categoryId, type: before.type },
+      after: { amount: row.amount, categoryId: row.categoryId, type: row.type },
     });
 
     const [hydrated] = await hydrateTransactions([row]);

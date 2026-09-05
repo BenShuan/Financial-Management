@@ -7,15 +7,16 @@ import { colorDotClass } from "@/lib/labels";
 import { dateGroupLabel } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
-const HEBREW_LETTER = /^[א-ת]$/;
-const DIGIT = /^[0-9]$/;
+// A code can be typed on any row regardless of its current income/expense type —
+// the matched category's kind reclassifies the row (backend derives type from it).
+const CODE_CHAR = /^[א-ת0-9]$/;
 
 type CodeMap = Map<string, Category>;
 
-function buildCodeMap(categories: Category[], kind: "income" | "expense"): CodeMap {
+function buildCodeMap(categories: Category[]): CodeMap {
   const map: CodeMap = new Map();
   for (const cat of categories) {
-    if (cat.kind === kind && cat.code) map.set(cat.code, cat);
+    if (cat.code) map.set(cat.code, cat);
   }
   return map;
 }
@@ -43,9 +44,13 @@ export function TransactionsTable({
   onCategoryChange: (transactionId: string, categoryId: string | null) => void;
   pendingTransactionId?: string;
 }) {
-  const incomeCodeMap = useMemo(() => buildCodeMap(activeCategories, "income"), [activeCategories]);
-  const expenseCodeMap = useMemo(
-    () => buildCodeMap(activeCategories, "expense"),
+  const codeMap = useMemo(() => buildCodeMap(activeCategories), [activeCategories]);
+  const incomeCategories = useMemo(
+    () => activeCategories.filter((c) => c.kind === "income"),
+    [activeCategories],
+  );
+  const expenseCategories = useMemo(
+    () => activeCategories.filter((c) => c.kind === "expense"),
     [activeCategories],
   );
 
@@ -147,8 +152,9 @@ export function TransactionsTable({
                           <CategoryCell
                             txn={txn}
                             category={category}
-                            codeMap={txn.type === "income" ? incomeCodeMap : expenseCodeMap}
-                            categories={activeCategories.filter((c) => c.kind === txn.type)}
+                            codeMap={codeMap}
+                            incomeCategories={incomeCategories}
+                            expenseCategories={expenseCategories}
                             registerRef={(el) => {
                               if (el) cellRefs.current.set(txn.transactionId, el);
                               else cellRefs.current.delete(txn.transactionId);
@@ -193,7 +199,8 @@ function CategoryCell({
   txn,
   category,
   codeMap,
-  categories,
+  incomeCategories,
+  expenseCategories,
   registerRef,
   isRovingTarget,
   onFocus,
@@ -205,7 +212,8 @@ function CategoryCell({
   txn: Transaction;
   category?: Category;
   codeMap: CodeMap;
-  categories: Category[];
+  incomeCategories: Category[];
+  expenseCategories: Category[];
   registerRef: (el: HTMLButtonElement | null) => void;
   isRovingTarget: boolean;
   onFocus: () => void;
@@ -218,7 +226,6 @@ function CategoryCell({
   const [invalid, setInvalid] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const charPattern = txn.type === "income" ? HEBREW_LETTER : DIGIT;
 
   const clearTimer = () => {
     if (timerRef.current) {
@@ -264,7 +271,7 @@ function CategoryCell({
       }
       return;
     }
-    if (e.key.length !== 1 || !charPattern.test(e.key)) return;
+    if (e.key.length !== 1 || !CODE_CHAR.test(e.key)) return;
     e.preventDefault();
     const next = buffer + e.key;
     const exact = codeMap.get(next);
@@ -331,27 +338,48 @@ function CategoryCell({
               ללא קטגוריה
             </button>
           </li>
-          {categories.map((cat) => (
-            <li key={cat.categoryId}>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  onAssign(cat.categoryId);
-                  setMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-start text-xs font-bold hover:bg-muted"
-              >
-                <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-muted px-1 text-[10px] font-extrabold">
-                  {cat.code ?? "—"}
-                </span>
-                <span className={cn("size-2 shrink-0 rounded-sm", colorDotClass(cat.color))} />
-                <span className="truncate">{cat.parentCategoryId ? `— ${cat.name}` : cat.name}</span>
-              </button>
-            </li>
-          ))}
+          <CategoryOptionGroup label="הכנסות" categories={incomeCategories} onAssign={onAssign} onDone={() => setMenuOpen(false)} />
+          <CategoryOptionGroup label="הוצאות" categories={expenseCategories} onAssign={onAssign} onDone={() => setMenuOpen(false)} />
         </ul>
       ) : null}
     </div>
+  );
+}
+
+function CategoryOptionGroup({
+  label,
+  categories,
+  onAssign,
+  onDone,
+}: {
+  label: string;
+  categories: Category[];
+  onAssign: (categoryId: string) => void;
+  onDone: () => void;
+}) {
+  if (categories.length === 0) return null;
+  return (
+    <>
+      <li className="px-2.5 pt-1.5 pb-0.5 text-[10px] font-bold text-muted-foreground">{label}</li>
+      {categories.map((cat) => (
+        <li key={cat.categoryId}>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              onAssign(cat.categoryId);
+              onDone();
+            }}
+            className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-start text-xs font-bold hover:bg-muted"
+          >
+            <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-muted px-1 text-[10px] font-extrabold">
+              {cat.code ?? "—"}
+            </span>
+            <span className={cn("size-2 shrink-0 rounded-sm", colorDotClass(cat.color))} />
+            <span className="truncate">{cat.parentCategoryId ? `— ${cat.name}` : cat.name}</span>
+          </button>
+        </li>
+      ))}
+    </>
   );
 }
