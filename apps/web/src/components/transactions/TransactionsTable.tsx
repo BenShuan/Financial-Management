@@ -299,6 +299,7 @@ function CategoryCell({
           onFocus();
           setMenuOpen((open) => !open);
         }}
+        onBlur={() => setMenuOpen(false)}
         disabled={updating}
         aria-label={`קטגוריה עבור ${txn.description}: ${category ? category.name : "ללא קטגוריה"}. הקלידו קוד קטגוריה או Enter לבחירה מרשימה`}
         className={cn(
@@ -316,41 +317,40 @@ function CategoryCell({
       </button>
 
       {menuOpen ? (
-        <>
-          <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
-          <ul className="absolute end-0 top-full z-30 mt-1 max-h-56 w-48 overflow-y-auto rounded-control border border-border bg-card py-1 shadow-lg">
-            <li>
+        <ul className="absolute end-0 top-full z-30 mt-1 max-h-56 w-48 overflow-y-auto rounded-control border border-border bg-card py-1 shadow-lg">
+          <li>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onClear();
+                setMenuOpen(false);
+              }}
+              className="flex w-full items-center px-2.5 py-1.5 text-start text-xs font-bold text-muted-foreground hover:bg-muted"
+            >
+              ללא קטגוריה
+            </button>
+          </li>
+          {categories.map((cat) => (
+            <li key={cat.categoryId}>
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
-                  onClear();
+                  onAssign(cat.categoryId);
                   setMenuOpen(false);
                 }}
-                className="flex w-full items-center px-2.5 py-1.5 text-start text-xs font-bold text-muted-foreground hover:bg-muted"
+                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-start text-xs font-bold hover:bg-muted"
               >
-                ללא קטגוריה
+                <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-muted px-1 text-[10px] font-extrabold">
+                  {cat.code ?? "—"}
+                </span>
+                <span className={cn("size-2 shrink-0 rounded-sm", colorDotClass(cat.color))} />
+                <span className="truncate">{cat.parentCategoryId ? `— ${cat.name}` : cat.name}</span>
               </button>
             </li>
-            {categories.map((cat) => (
-              <li key={cat.categoryId}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onAssign(cat.categoryId);
-                    setMenuOpen(false);
-                  }}
-                  className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-start text-xs font-bold hover:bg-muted"
-                >
-                  <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm bg-muted px-1 text-[10px] font-extrabold">
-                    {cat.code ?? "—"}
-                  </span>
-                  <span className={cn("size-2 shrink-0 rounded-sm", colorDotClass(cat.color))} />
-                  <span className="truncate">{cat.parentCategoryId ? `— ${cat.name}` : cat.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
+          ))}
+        </ul>
       ) : null}
     </div>
   );
