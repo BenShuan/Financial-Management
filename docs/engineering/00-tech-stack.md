@@ -1,8 +1,8 @@
 # Engineering — tech stack and monorepo
 
 ```yaml
-version: 1.3.0
-last_updated: 2026-07-03
+version: 1.5.0
+last_updated: 2026-11-16
 breaking: "no"
 ```
 
@@ -64,7 +64,7 @@ New apps (e.g. `apps/admin`) require an update to this document **before** scaff
 
 | Layer | Choice | Notes |
 |-------|--------|--------|
-| **CI** | **GitHub Actions** | Lint, typecheck, test, build on PR; deploy workflow on `main` or tags as you prefer. Private repos have monthly minute limits; public repos are more generous. |
+| **CI** | **GitHub Actions** | `.github/workflows/ci.yml` runs on every PR and push to `main`: `pnpm install --frozen-lockfile`, then `lint`, `typecheck`, `test`, `build` through Turborepo (Node 22, pnpm 9.15.0 — same as `render.yaml`). Deploys stay with Vercel/Render on `main`. Private repos have monthly minute limits; public repos are more generous. |
 | **Database** | **Neon** (serverless PostgreSQL) | Free tier with storage/compute limits; fine for early production. Alternative: **Supabase** (Postgres + extras) if you want managed auth/storage later—still update this table if you switch. |
 | **API** | **Render** (Web Service) | Free/hobby tiers have cold starts and limits; acceptable for low-traffic personal use. Alternatives: **Fly.io**, **Railway**—document if migrated. |
 | **Web** | **Cloudflare Pages** or **Vercel** | Static/Vite build output; set env for API base URL at build time. Pick one provider and document custom domain and preview deployments here when live. |
@@ -88,6 +88,7 @@ Limits and pricing change; verify current quotas on each vendor’s site before 
 
 ## Changelog
 
+- `1.5.0` (2026-11-16): Added GitHub Actions CI (`.github/workflows/ci.yml`) and root `lint`/`test` Turborepo tasks. Packages opt in by defining a `lint`/`test` script; until they do, those steps are no-ops.
 - `1.4.0` (2026-07-03): Hardened Render deploy: Node pinned to 22 (`NODE_VERSION` + `.node-version`), migrations moved from build to boot, CORS accepts a normalized comma-separated `WEB_ORIGIN`, added `.env.example` files and [deployment.md](deployment.md) runbook.
 - `1.3.0` (2026-07-03): Documented live deployment: Vercel (web), Render (API, `render.yaml`), Neon (DB), temporary `ACCESS_SECRET` gate until real auth.
 - `1.2.0` (2026-04-04): Locked client routing to **React Router** (`react-router-dom` v7) for `apps/web`.
