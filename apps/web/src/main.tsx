@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { AccessGate } from "./components/AccessGate";
+import { AuthGate } from "./components/AuthGate";
 import "./index.css";
 import { initSystemColorScheme } from "./theme";
 
@@ -21,7 +22,9 @@ createRoot(rootEl).render(
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <AccessGate>
-          <App />
+          <AuthGate>
+            <App />
+          </AuthGate>
         </AccessGate>
       </QueryClientProvider>
     </BrowserRouter>

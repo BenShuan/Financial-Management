@@ -22,6 +22,13 @@
       "when": 1788206256433,
       "tag": "0002_add_category_code",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794853986108,
+      "tag": "0003_rainy_slapstick",
+      "breakpoints": true
     }
   ]
 }

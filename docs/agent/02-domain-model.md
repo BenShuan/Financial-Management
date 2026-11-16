@@ -1,9 +1,9 @@
 # Domain model
 
 ```yaml
-version: 2.0.0
-last_updated: 2026-07-02
-breaking: "yes"
+version: 2.1.0
+last_updated: 2026-11-16
+breaking: "no"
 ```
 
 ## Entity glossary
@@ -13,6 +13,7 @@ breaking: "yes"
 | `Household` | Tenant root; owns currency and timezone. |
 | `User` | Login identity; can belong to many households via membership. |
 | `HouseholdMember` | Join of user to household with role. |
+| `Session` | Server-side login session (HTTP-only cookie); resolves to one user + household membership. |
 | `AuditEvent` | Lightweight append-only activity log for accountability. |
 | `Account` | Financial container (checking, credit, etc.) with balances. |
 | `AccountBalanceSnapshot` | Point-in-time balance for history and reconciliation context. |

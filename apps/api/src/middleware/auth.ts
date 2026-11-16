@@ -1,14 +1,13 @@
-import { and, eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import type { HouseholdRole } from "@financial-management/shared";
-import { db } from "../db/index.js";
-import { householdMembers } from "../db/schema.js";
+import { isAllowedOrigin } from "../lib/origins.js";
+import { resolveSession } from "../lib/session.js";
 import type { AppEnv, AuthContext } from "../types.js";
 
 /**
- * Deployment gate until real auth lands: when ACCESS_SECRET is set, every request
- * must carry `Authorization: Bearer <secret>`. No-op in local dev (secret unset).
+ * Temporary deployment gate (removed by FM-6): when ACCESS_SECRET is set, every
+ * request must carry `Authorization: Bearer <secret>`. No-op in local dev (secret unset).
  */
 export const accessGate = createMiddleware<AppEnv>(async (c, next) => {
   const secret = process.env.ACCESS_SECRET;
@@ -19,33 +18,29 @@ export const accessGate = createMiddleware<AppEnv>(async (c, next) => {
   await next();
 });
 
-let cachedDevAuth: AuthContext | null = null;
+/**
+ * Session auth: resolves the HTTP-only session cookie to the user's household
+ * membership (household + live role). Replaces the old dev-auth stub.
+ */
+export const sessionAuth = createMiddleware<AppEnv>(async (c, next) => {
+  const auth = await resolveSession(c);
+  if (!auth) throw new HTTPException(401, { message: "נדרשת התחברות" });
+  c.set("auth", auth);
+  await next();
+});
+
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
- * Dev auth stub: every request acts as the seeded owner of the first household.
- * Replace with real session resolution when auth lands; role checks below stay as-is.
+ * CSRF defense for cookie auth. The production cookie is SameSite=None (web and
+ * API are on different sites), so state-changing requests must come from an
+ * allowed web origin. Non-browser clients send no Origin and are not CSRF-able.
  */
-export const devAuth = createMiddleware<AppEnv>(async (c, next) => {
-  if (!cachedDevAuth) {
-    const [member] = await db
-      .select({
-        userId: householdMembers.userId,
-        householdId: householdMembers.householdId,
-        role: householdMembers.role,
-      })
-      .from(householdMembers)
-      .where(
-        and(eq(householdMembers.role, "owner"), eq(householdMembers.status, "active")),
-      )
-      .limit(1);
-    if (!member) {
-      throw new HTTPException(503, {
-        message: "לא נמצא משתמש מפתח — יש להריץ pnpm db:seed",
-      });
-    }
-    cachedDevAuth = member;
+export const csrfOriginCheck = createMiddleware<AppEnv>(async (c, next) => {
+  const origin = c.req.header("origin");
+  if (!SAFE_METHODS.has(c.req.method) && origin && !isAllowedOrigin(origin)) {
+    throw new HTTPException(403, { message: "מקור הבקשה אינו מורשה" });
   }
-  c.set("auth", cachedDevAuth);
   await next();
 });
 

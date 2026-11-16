@@ -75,8 +75,24 @@ export const users = pgTable("users", {
   userId: uuid("user_id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
   displayName: text("display_name").notNull(),
+  /** scrypt hash (lib/password.ts); null = cannot log in until a password is set. */
+  passwordHash: text("password_hash"),
   avatarUrl: text("avatar_url"),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+/** Server-side login sessions; only a SHA-256 of the cookie token is stored. */
+export const sessions = pgTable("sessions", {
+  sessionId: uuid("session_id").defaultRandom().primaryKey(),
+  tokenHash: text("token_hash").notNull().unique(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.userId, { onDelete: "cascade" }),
+  householdId: uuid("household_id")
+    .notNull()
+    .references(() => households.householdId),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: createdAt(),
 });
 
