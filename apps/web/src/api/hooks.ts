@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   accountSchema,
   budgetActualsSchema,
+  budgetCategoryHistorySchema,
   budgetPeriodSchema,
   bulkCategorizeSchema,
   categorySchema,
@@ -175,6 +176,15 @@ export function useBudgetActuals(budgetPeriodId: string | undefined, month?: num
         budgetActualsSchema,
       ),
     enabled: Boolean(budgetPeriodId),
+  });
+}
+
+export function useBudgetCategoryHistory(year: number) {
+  return useQuery({
+    queryKey: ["budgets", "category-history", year],
+    queryFn: () =>
+      apiFetch(`/api/budgets/category-history?year=${year}`, budgetCategoryHistorySchema),
+    enabled: Number.isInteger(year) && year >= 2000 && year <= 2100,
   });
 }
 

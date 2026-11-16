@@ -82,6 +82,26 @@ export const budgetActualsSchema = z.object({
 });
 export type BudgetActuals = z.infer<typeof budgetActualsSchema>;
 
+/**
+ * Per-category history for one calendar year, shown when planning the next year.
+ * Planned comes from that year's BudgetLine (null when no plan/line); actual is
+ * derived at read time from income/expense transactions and splits (never stored).
+ */
+export const budgetCategoryHistorySchema = z.object({
+  year: z.number().int(),
+  /** Whether a BudgetPeriod exists for this year. */
+  hasPeriod: z.boolean(),
+  /** Only categories with a planned line or non-zero actual are listed. */
+  categories: z.array(
+    z.object({
+      categoryId: z.string().uuid(),
+      planned: moneySchema.nullable(),
+      actual: moneySchema,
+    }),
+  ),
+});
+export type BudgetCategoryHistory = z.infer<typeof budgetCategoryHistorySchema>;
+
 export const goalSchema = z.object({
   goalId: z.string().uuid(),
   householdId: z.string().uuid(),

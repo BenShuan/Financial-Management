@@ -1,12 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { fromMinorUnits, sumMoney, toMinorUnits } from "@financial-management/shared";
 import {
-  fromMinorUnits,
-  sumMoney,
-  toMinorUnits,
-  type BudgetPeriod,
-} from "@financial-management/shared";
-import { useBudgetPeriods, useCategories, useCreateBudgetPeriod, useSession } from "@/api/hooks";
+  useBudgetCategoryHistory,
+  useBudgetPeriods,
+  useCategories, useCreateBudgetPeriod, useSession } from "@/api/hooks";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -37,16 +35,13 @@ export function BudgetNewPage() {
     [categories.data],
   );
 
-  const referencePeriod: BudgetPeriod | undefined = periods.data?.find(
-    (p) => p.year === year - 1,
+  const history = useBudgetCategoryHistory(year - 1);
+  const historyByCategory = useMemo(
+    () => new Map((history.data?.categories ?? []).map((h) => [h.categoryId, h])),
+    [history.data],
   );
-  const referenceByCategory = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const line of referencePeriod?.lines ?? []) {
-      map.set(line.categoryId, line.plannedAmount);
-    }
-    return map;
-  }, [referencePeriod]);
+  const setAmount = (categoryId: string, value: string) =>
+    setAmounts((prev) => ({ ...prev, [categoryId]: value }));
 
   const filledLines = Object.entries(amounts).filter(([, v]) => Number(v) > 0);
   const totalAnnual = sumMoney(filledLines.map(([, v]) => v));
@@ -130,7 +125,12 @@ export function BudgetNewPage() {
       </h2>
       <div className="mb-4 flex flex-col gap-2">
         {expenseCategories.map((category) => {
-          const reference = referenceByCategory.get(category.categoryId);
+          const past = historyByCategory.get(category.categoryId);
+          const planned = past?.planned ?? null;
+          const actual = past && Number(past.actual) > 0 ? past.actual : null;
+          const fmt = (v: string | null) =>
+            v === null ? "—" : formatCurrencyWhole(v, { currency });
+          const useValue = (v: string) => setAmount(category.categoryId, String(Number(v)));
           return (
             <Card key={category.categoryId} className="flex items-center gap-3 p-3.5">
               <span className={cn("size-2.5 shrink-0 rounded-sm", colorDotClass(category.color))} />
@@ -138,11 +138,30 @@ export function BudgetNewPage() {
                 <span className="block truncate text-sm font-bold">
                   {category.parentCategoryId ? `— ${category.name}` : category.name}
                 </span>
-                {reference ? (
-                  <span className="block text-[11px] font-medium text-muted-foreground" dir="ltr">
-                    {year - 1}: {formatCurrencyWhole(reference, { currency })} / שנה
-                  </span>
-                ) : null}
+                <span className="mt-0.5 block text-[11px] font-medium text-muted-foreground">
+                  {history.data?.hasPeriod ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={planned === null}
+                        onClick={() => planned !== null && useValue(planned)}
+                        className="me-3 text-start enabled:hover:text-foreground enabled:hover:underline"
+                        title="שימוש בסכום שתוכנן אשתקד"
+                      >
+                        תוכנן אשתקד: <span dir="ltr">{fmt(planned)}</span>
+                      </button>
+                    </>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={actual === null}
+                    onClick={() => actual !== null && useValue(actual)}
+                    className="text-start enabled:hover:text-foreground enabled:hover:underline"
+                    title="שימוש בסכום שהוצא בפועל אשתקד"
+                  >
+                    בפועל אשתקד: <span dir="ltr">{fmt(actual)}</span>
+                  </button>
+                </span>
               </span>
               <Input
                 inputMode="decimal"
