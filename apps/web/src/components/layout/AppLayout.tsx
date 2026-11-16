@@ -129,7 +129,7 @@ export function AppLayout() {
     <div className="min-h-dvh bg-background">
       <DesktopSidebar />
       <div className="lg:ps-60">
-        <main className="mx-auto w-full max-w-2xl px-5 pb-28 pt-6 lg:max-w-4xl lg:px-10 lg:pb-10 lg:pt-10">
+        <main className="mx-auto w-full max-w-2xl px-5 pb-28 pt-6 lg:max-w-4xl lg:px-10 lg:pb-10 lg:pt-10 xl:max-w-6xl xl:px-12 2xl:max-w-7xl">
           <Outlet />
         </main>
       </div>

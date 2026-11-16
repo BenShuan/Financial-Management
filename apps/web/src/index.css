@@ -76,6 +76,11 @@
     @apply border-border;
   }
 
+  /* One-step bump over the 16px default; every rem-based utility scales with it. */
+  html {
+    font-size: 17px;
+  }
+
   body {
     @apply bg-background text-foreground min-h-dvh antialiased font-sans;
   }
