@@ -1,8 +1,9 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import {
   budgetActualsSchema,
+  budgetCategoryHistorySchema,
   budgetPeriodSchema,
   createBudgetPeriodSchema,
   fromMinorUnits,
@@ -11,7 +12,7 @@ import {
   updateBudgetPeriodSchema,
 } from "@financial-management/shared";
 import { db } from "../db/index.js";
-import { budgetLines, budgetPeriods } from "../db/schema.js";
+import { budgetLines, budgetPeriods, transactionSplits, transactions } from "../db/schema.js";
 import { emitAuditEvent } from "../lib/audit.js";
 import { createRouter } from "../lib/router.js";
 import { requireRole } from "../middleware/auth.js";
@@ -86,6 +87,84 @@ budgetsRouter.openapi(
       result.push(serializePeriod(period, lines));
     }
     return c.json(result);
+  },
+);
+
+budgetsRouter.openapi(
+  createRoute({
+    method: "get",
+    path: "/api/budgets/category-history",
+    tags: ["Budgets"],
+    summary: "Per-category planned and actual spend for a calendar year (read-time, for planning)",
+    request: {
+      query: z.object({ year: z.coerce.number().int().min(2000).max(2100) }),
+    },
+    responses: {
+      200: {
+        description: "Planned (if a plan exists) and derived actual per category",
+        content: { "application/json": { schema: budgetCategoryHistorySchema } },
+      },
+    },
+  }),
+  async (c) => {
+    const auth = c.get("auth");
+    const { year } = c.req.valid("query");
+    const from = `${year}-01-01`;
+    const to = `${year}-12-31`;
+
+    const [period] = await db
+      .select()
+      .from(budgetPeriods)
+      .where(and(eq(budgetPeriods.householdId, auth.householdId), eq(budgetPeriods.year, year)));
+    const lines = period
+      ? await db.select().from(budgetLines).where(eq(budgetLines.budgetPeriodId, period.budgetPeriodId))
+      : [];
+
+    // Actuals: income/expense only (transfers excluded). Header category covers unsplit
+    // transactions; split categories cover split ones. Uncategorized rows have no category.
+    const inYear = and(
+      eq(transactions.householdId, auth.householdId),
+      inArray(transactions.type, ["expense", "income"]),
+      gte(transactions.transactionDate, from),
+      lte(transactions.transactionDate, to),
+    );
+    const headerRows = await db
+      .select({
+        categoryId: transactions.categoryId,
+        total: sql<string>`SUM(${transactions.amount})`,
+      })
+      .from(transactions)
+      .where(and(inYear, isNotNull(transactions.categoryId)))
+      .groupBy(transactions.categoryId);
+    const splitRows = await db
+      .select({
+        categoryId: transactionSplits.categoryId,
+        total: sql<string>`SUM(${transactionSplits.amount})`,
+      })
+      .from(transactionSplits)
+      .innerJoin(transactions, eq(transactions.transactionId, transactionSplits.transactionId))
+      .where(inYear)
+      .groupBy(transactionSplits.categoryId);
+
+    const actualByCategory = new Map<string, string[]>();
+    for (const row of [...headerRows, ...splitRows]) {
+      if (!row.categoryId) continue;
+      const list = actualByCategory.get(row.categoryId) ?? [];
+      list.push(row.total);
+      actualByCategory.set(row.categoryId, list);
+    }
+    const plannedByCategory = new Map(lines.map((l) => [l.categoryId, l.plannedAmount]));
+
+    const categoryIds = new Set([...actualByCategory.keys(), ...plannedByCategory.keys()]);
+    return c.json({
+      year,
+      hasPeriod: Boolean(period),
+      categories: [...categoryIds].map((categoryId) => ({
+        categoryId,
+        planned: plannedByCategory.get(categoryId) ?? null,
+        actual: sumMoney(actualByCategory.get(categoryId) ?? []),
+      })),
+    });
   },
 );
 

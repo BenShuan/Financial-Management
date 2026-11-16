@@ -1,8 +1,8 @@
 # Workflows
 
 ```yaml
-version: 2.0.0
-last_updated: 2026-07-02
+version: 2.0.1
+last_updated: 2026-11-16
 breaking: "yes"
 ```
 
@@ -44,6 +44,7 @@ breaking: "yes"
 2. Add `BudgetLine` rows: `category_id`, **annual** `planned_amount`, optional year-to-year rollover fields.
 3. **Monthly view** shows `planned_amount / 12` per category, derived at read time (rounding is a display concern; nothing stored per month).
 4. **Actuals** are derived at read time from `Transaction` / splits in the month or year (not duplicated in budget tables).
+   When planning a new year, the new-budget screen shows each category's **previous-year planned** amount (from that year's `BudgetLine`, if a period exists) and **previous-year actual** (derived from income/expense transactions and splits in that calendar year; transfers excluded, uncategorized not attributed) via `GET /api/budgets/category-history?year=`. Nothing is stored; rollover fields are separate.
 5. Close period: set status to `closed` at year end or when household policy requires locking edits.
 
 ## Recurring
