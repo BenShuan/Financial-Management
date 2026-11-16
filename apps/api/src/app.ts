@@ -2,15 +2,15 @@ import { createRoute } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
-import { eq } from "drizzle-orm";
 import {
   healthResponseSchema,
   sessionContextSchema,
 } from "@financial-management/shared";
-import { db } from "./db/index.js";
-import { households, users } from "./db/schema.js";
+import { corsOrigin } from "./lib/origins.js";
 import { createRouter } from "./lib/router.js";
-import { accessGate, devAuth } from "./middleware/auth.js";
+import { accessGate, csrfOriginCheck, sessionAuth } from "./middleware/auth.js";
+import { authRouter } from "./routes/auth.js";
+import { buildSessionContext } from "./routes/session-context.js";
 import { accountsRouter } from "./routes/accounts.js";
 import { categoriesRouter } from "./routes/categories.js";
 import { budgetsRouter } from "./routes/budgets.js";
@@ -21,24 +21,10 @@ import { transactionsRouter } from "./routes/transactions.js";
 
 const app = createRouter();
 
-// WEB_ORIGIN may be a comma-separated list (production + preview domains).
-// Normalized so a pasted trailing slash doesn't silently block every request.
-const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, "");
-const allowedOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:5173")
-  .split(",")
-  .map(normalizeOrigin)
-  .filter(Boolean);
 app.use(
   "/*",
   cors({
-    // Configured origin(s) in production; any localhost port in dev (Vite may auto-assign one).
-    origin: (origin) => {
-      const normalized = normalizeOrigin(origin);
-      if (allowedOrigins.includes(normalized)) return origin;
-      return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalized)
-        ? origin
-        : (allowedOrigins[0] ?? "");
-    },
+    origin: corsOrigin,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -75,9 +61,19 @@ app.use("/api/*", async (c, next) => {
   return accessGate(c, next);
 });
 
+app.use("/api/*", csrfOriginCheck);
+
+// Public endpoints; everything else under /api requires a valid session cookie.
+const PUBLIC_PATHS = new Set([
+  "/api/health",
+  "/api/docs",
+  "/api/auth/register",
+  "/api/auth/login",
+  "/api/auth/logout",
+]);
 app.use("/api/*", async (c, next) => {
-  if (c.req.path === "/api/health" || c.req.path === "/api/docs") return next();
-  return devAuth(c, next);
+  if (PUBLIC_PATHS.has(c.req.path)) return next();
+  return sessionAuth(c, next);
 });
 
 const meRoute = createRoute({
@@ -93,36 +89,9 @@ const meRoute = createRoute({
   },
 });
 
-app.openapi(meRoute, async (c) => {
-  const auth = c.get("auth");
-  const [user] = await db.select().from(users).where(eq(users.userId, auth.userId));
-  const [household] = await db
-    .select()
-    .from(households)
-    .where(eq(households.householdId, auth.householdId));
-  if (!user || !household) {
-    throw new HTTPException(500, { message: "חסר הקשר משתמש" });
-  }
-  return c.json({
-    user: {
-      userId: user.userId,
-      email: user.email,
-      displayName: user.displayName,
-      avatarUrl: user.avatarUrl,
-      createdAt: user.createdAt.toISOString(),
-    },
-    household: {
-      householdId: household.householdId,
-      name: household.name,
-      baseCurrency: household.baseCurrency,
-      timezone: household.timezone,
-      status: household.status,
-      createdAt: household.createdAt.toISOString(),
-    },
-    role: auth.role,
-  });
-});
+app.openapi(meRoute, async (c) => c.json(await buildSessionContext(c.get("auth"))));
 
+app.route("/", authRouter);
 app.route("/", accountsRouter);
 app.route("/", categoriesRouter);
 app.route("/", transactionsRouter);

@@ -1,9 +1,9 @@
 # Entities and fields
 
 ```yaml
-version: 2.0.0
-last_updated: 2026-07-02
-breaking: "yes"
+version: 2.1.0
+last_updated: 2026-11-16
+breaking: "no"
 ```
 
 Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID strings unless implementation standardizes otherwise.
@@ -40,7 +40,8 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 | `created_at` | yes | timestamptz | |
 | `phone` | no | string | |
 | `avatar_url` | no | string | |
-| `last_login_at` | no | timestamptz | |
+| `password_hash` | no | string | scrypt hash (`scrypt$N$r$p$salt$hash`); never returned by the API. NULL = cannot log in until a password is set |
+| `last_login_at` | no | timestamptz | Set on registration and every successful login |
 
 ## HouseholdMember
 
@@ -54,6 +55,19 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 | `status` | yes | enum | active / invited / removed |
 | `invited_by` | no | id | FK → User |
 | `permissions_override` | no | jsonb | sparse overrides |
+
+## Session
+
+Server-side login session. The browser holds an opaque random token in an HTTP-only cookie; only its SHA-256 is stored. The household role is **not** stored here — it is read live from `HouseholdMember` on every request, so role changes and removals apply immediately.
+
+| Field | Required | Type | Notes |
+|-------|----------|------|--------|
+| `session_id` | yes | id | PK |
+| `token_hash` | yes | string | SHA-256 (hex) of the cookie token; unique |
+| `user_id` | yes | id | FK → User (cascade on delete) |
+| `household_id` | yes | id | FK → Household; the active household chosen at login (first active membership) |
+| `expires_at` | yes | timestamptz | 30 days after creation |
+| `created_at` | yes | timestamptz | |
 
 ## AuditEvent
 

@@ -32,7 +32,13 @@ Use **Manual Deploy → Clear build cache & deploy** — this also rules out a s
   DATABASE_URL='<neon-url-with-sslmode=require>' pnpm --filter @financial-management/api db:seed
   ```
 
-  Until the seed runs, every `/api/*` route except `/api/health` returns **503** ("run pnpm db:seed") because the dev-auth stub needs a seeded owner. The API self-heals the moment the seed lands — no restart needed. The seed is idempotent (skips if the dev user exists) but inserts sample data; that's fine for this personal deployment, don't auto-run it in code.
+  The seed creates `dev@hearth.local` with the password from `SEED_PASSWORD` (or a random one printed once); sign in with it in the web app. A user that existed before password auth shipped (e.g. an earlier seed on Neon) has no password yet — set one:
+
+  ```sh
+  DATABASE_URL='<neon-url-with-sslmode=require>' EMAIL=dev@hearth.local NEW_PASSWORD='<min 10 chars>' pnpm --filter @financial-management/api db:set-password
+  ```
+
+  Anyone can also **register** in the web app, which creates a new household with default categories only. The seed is idempotent (skips if the dev user exists) but inserts sample data; that's fine for this personal deployment, don't auto-run it in code.
 
 ## Vercel — web
 
@@ -44,7 +50,7 @@ Use **Manual Deploy → Clear build cache & deploy** — this also rules out a s
 ```sh
 curl https://<service>.onrender.com/api/health                        # 200
 curl -H "Authorization: Bearer $ACCESS_SECRET" \
-     https://<service>.onrender.com/api/me                            # 200 after seed; 503 before
+     https://<service>.onrender.com/api/me                            # 401 "נדרשת התחברות" without a session cookie (gate passed)
 ```
 
-Then open the Vercel app, enter the access key, and confirm the dashboard loads (exercises CORS + gate end-to-end). First request after idle is slow — the free Render instance spins down.
+Then open the Vercel app, enter the access key, sign in (or register), and confirm the dashboard loads (exercises CORS + gate end-to-end). First request after idle is slow — the free Render instance spins down.

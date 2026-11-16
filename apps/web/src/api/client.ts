@@ -13,14 +13,19 @@ export function setAccessKey(key: string): void {
   localStorage.setItem(ACCESS_KEY_STORAGE, key);
 }
 
-/** Probes /api/me; false only when the API rejects the access key (401). */
+/**
+ * Probes /api/me; false only when the API rejects the access key. A 401 from the
+ * session check ("not signed in") is not a gate rejection, so it is told apart by message.
+ */
 export async function checkAccess(key: string | null): Promise<boolean> {
   try {
     const res = await fetch(`${API_ORIGIN}/api/me`, {
       credentials: "include",
       headers: key ? { Authorization: `Bearer ${key}` } : undefined,
     });
-    return res.status !== 401;
+    if (res.status !== 401) return true;
+    const body = (await res.json().catch(() => null)) as { message?: string } | null;
+    return body?.message !== "נדרש קוד גישה";
   } catch {
     // API unreachable — let the app render and surface its own errors.
     return true;

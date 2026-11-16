@@ -1,7 +1,7 @@
 # Engineering — tech stack and monorepo
 
 ```yaml
-version: 1.5.0
+version: 1.6.0
 last_updated: 2026-11-16
 breaking: "no"
 ```
@@ -43,7 +43,7 @@ New apps (e.g. `apps/admin`) require an update to this document **before** scaff
 | `packages/shared` | Shared validation and types | **TypeScript**, **Zod**; no Node-only imports |
 | `packages/api-client` | Optional HTTP client for the web app | **TypeScript**; hand-written v1, Zod-parse responses using `packages/shared` |
 
-**Auth (v1):** Issue **sessions** (HTTP-only cookie) or **JWT** from `apps/api`; enforce household roles **only** on the server. Do not trust client-side checks for authorization.
+**Auth (v1):** Server-side **sessions** issued by `apps/api` (decision recorded in the Notion Decisions Log). `POST /api/auth/register|login|logout`; passwords hashed with **scrypt** (Node `crypto`, no native addon). The `fm_session` cookie (HTTP-only; `Secure` + `SameSite=None` in production because web and API are on different sites, `Lax` locally) carries an opaque random token whose SHA-256 is stored in the `sessions` table (30-day expiry). Each request resolves the session to the user's **active household membership** (household + live role); there is no "first household" fallback. State-changing requests whose `Origin` is not in `WEB_ORIGIN` are rejected (CSRF), and failed logins are throttled per email. Enforce household roles **only** on the server (`requireRole`); do not trust client-side checks for authorization. Users created before password auth (e.g. the seeded owner) get a password via `pnpm --filter @financial-management/api db:set-password`.
 
 **Contract:** Public HTTP surface documented as **OpenAPI 3** (generated from code or maintained alongside routes). Any breaking API change bumps API version or is documented in this file.
 
@@ -78,7 +78,7 @@ Limits and pricing change; verify current quotas on each vendor’s site before 
 - **API:** **Render** free web service, defined in `render.yaml` (Blueprint, Node pinned to 22). Builds `shared` + `api`; Drizzle migrations run **at boot** (`src/db/migrate.ts`), so the build needs no `DATABASE_URL`. Starts `node apps/api/dist/index.js`. Production deploys from `main`. Full runbook: [deployment.md](deployment.md).
 - **Database:** **Neon** free tier; `DATABASE_URL` (with `?sslmode=require`) set in Render. Seed manually with `pnpm --filter @financial-management/api db:seed` against Neon.
 - **Env vars:** Render — `DATABASE_URL`, `WEB_ORIGIN` (comma-separated Vercel origin(s), no trailing slash), `ACCESS_SECRET`; Vercel — `VITE_API_ORIGIN` (Render URL). Examples in `apps/api/.env.example` and `apps/web/.env.example`.
-- **Access gate (temporary):** until real auth lands, the API requires `Authorization: Bearer $ACCESS_SECRET` on all `/api/*` routes except `/api/health`; the web app prompts once for the key (`AccessGate`) and stores it in localStorage. Remove when session auth replaces the dev-auth stub.
+- **Access gate (temporary):** until real auth lands, the API requires `Authorization: Bearer $ACCESS_SECRET` on all `/api/*` routes except `/api/health`; the web app prompts once for the key (`AccessGate`) and stores it in localStorage. Session auth now runs behind this gate; the gate itself is removed by a separate follow-up task.
 
 ## What we are not standardizing here
 
@@ -88,6 +88,7 @@ Limits and pricing change; verify current quotas on each vendor’s site before 
 
 ## Changelog
 
+- `1.6.0` (2026-11-16): Real session auth replaces the dev-auth stub: register/login/logout endpoints, scrypt password hashing, DB-backed sessions in an HTTP-only cookie, household context from the authenticated membership, `User.last_login_at` updated on login. The temporary `ACCESS_SECRET` gate remains until removed separately.
 - `1.5.0` (2026-11-16): Added GitHub Actions CI (`.github/workflows/ci.yml`) and root `lint`/`test` Turborepo tasks. Packages opt in by defining a `lint`/`test` script; until they do, those steps are no-ops.
 - `1.4.0` (2026-07-03): Hardened Render deploy: Node pinned to 22 (`NODE_VERSION` + `.node-version`), migrations moved from build to boot, CORS accepts a normalized comma-separated `WEB_ORIGIN`, added `.env.example` files and [deployment.md](deployment.md) runbook.
 - `1.3.0` (2026-07-03): Documented live deployment: Vercel (web), Render (API, `render.yaml`), Neon (DB), temporary `ACCESS_SECRET` gate until real auth.

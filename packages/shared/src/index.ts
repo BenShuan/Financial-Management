@@ -17,3 +17,4 @@ export * from "./recurring.js";
 export * from "./import.js";
 export * from "./reconciliation.js";
 export * from "./dashboard.js";
+export * from "./auth.js";
