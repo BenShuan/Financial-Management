@@ -6,7 +6,7 @@ Hebrew-language (RTL) household finance app. pnpm + Turborepo monorepo (Node >=2
 
 ## Commands
 
-Run from the repo root unless noted. There is **no test runner and no linter** configured; `typecheck` is the verification gate.
+Run from the repo root unless noted. Verification gates: `pnpm lint` (ESLint flat config in `eslint.config.mjs`), `pnpm typecheck` and `pnpm test` (Vitest); CI runs all three plus `build`.
 
 ```bash
 pnpm install

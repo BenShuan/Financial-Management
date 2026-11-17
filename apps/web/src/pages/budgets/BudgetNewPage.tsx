@@ -161,7 +161,7 @@ export function BudgetNewPage() {
           const hasHistory = (showPlanned && planned !== null) || actual !== null;
           const fmt = (v: string | null) =>
             v === null ? "—" : formatCurrencyWhole(v, { currency });
-          const useValue = (v: string) => setAnnual(id, String(Number(v)));
+          const applyLastYear = (v: string) => setAnnual(id, String(Number(v)));
           const open = openHistory[id] === true;
           const f = fields[id] ?? { month: "", year: "" };
           return (
@@ -213,7 +213,7 @@ export function BudgetNewPage() {
                         <button
                           type="button"
                           disabled={planned === null}
-                          onClick={() => planned !== null && useValue(planned)}
+                          onClick={() => planned !== null && applyLastYear(planned)}
                           title="שימוש בסכום שתוכנן אשתקד"
                           className="flex justify-between text-start enabled:hover:text-foreground enabled:hover:underline"
                         >
@@ -224,7 +224,7 @@ export function BudgetNewPage() {
                       <button
                         type="button"
                         disabled={actual === null}
-                        onClick={() => actual !== null && useValue(actual)}
+                        onClick={() => actual !== null && applyLastYear(actual)}
                         title="שימוש בסכום שהוצא בפועל אשתקד"
                         className="flex justify-between text-start enabled:hover:text-foreground enabled:hover:underline"
                       >
