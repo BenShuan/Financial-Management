@@ -1,7 +1,7 @@
 # Workflows
 
 ```yaml
-version: 2.2.0
+version: 2.2.2
 last_updated: 2026-11-17
 breaking: "yes"
 ```
@@ -54,11 +54,12 @@ breaking: "yes"
 ## Budget period lifecycle (annual)
 
 1. Create `BudgetPeriod` for a **year** (YYYY) in `draft` or `active` — one planning pass per year.
-2. Add `BudgetLine` rows: `category_id`, **annual** `planned_amount`, optional year-to-year rollover fields.
+2. Add `BudgetLine` rows for **income and expense** categories: `category_id`, **annual** `planned_amount`, optional year-to-year rollover fields. The plan summary shows planned income, planned expenses and expected profit (income − expenses).
 3. **Monthly view** shows `planned_amount / 12` per category, derived at read time (rounding is a display concern; nothing stored per month).
-4. **Actuals** are derived at read time from `Transaction` / splits in the month or year (not duplicated in budget tables).
+4. **Actuals** are derived at read time from `Transaction` / splits in the month or year (not duplicated in budget tables); income lines track received income, and the budget screen shows income vs expenses and expected vs current profit.
    When planning a new year, the new-budget screen shows each category's **previous-year planned** amount (from that year's `BudgetLine`, if a period exists) and **previous-year actual** (derived from income/expense transactions and splits in that calendar year; transfers excluded, uncategorized not attributed) via `GET /api/budgets/category-history?year=`. Nothing is stored; rollover fields are separate.
-5. Close period: set status to `closed` at year end or when household policy requires locking edits.
+5. **Edit** an open (non-closed) period: change planned amounts, add or remove lines, toggle rollover (admin+). Existing lines keep their id and rollover fields; the year is fixed.
+6. Close period: set status to `closed` at year end or when household policy requires locking edits.
 
 ## Recurring
 

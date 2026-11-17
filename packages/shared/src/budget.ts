@@ -5,7 +5,7 @@ import {
   goalStatusSchema,
   goalTypeSchema,
 } from "./enums.js";
-import { moneySchema, positiveMoneySchema } from "./money.js";
+import { moneySchema, positiveMoneySchema, signedMoneySchema } from "./money.js";
 
 export const budgetLineSchema = z.object({
   budgetLineId: z.string().uuid(),
@@ -56,10 +56,18 @@ export const updateBudgetPeriodSchema = z.object({
 });
 export type UpdateBudgetPeriodInput = z.infer<typeof updateBudgetPeriodSchema>;
 
-/** Read-time actuals for a budget line (spent = cleared + pending expense transactions). */
+/** Flow of a budget line, derived from its category kind (income or expense). */
+export const budgetLineKindSchema = z.enum(["income", "expense"]);
+export type BudgetLineKind = z.infer<typeof budgetLineKindSchema>;
+
+/**
+ * Read-time actuals for a budget line. For expense lines "spent" is the cleared + pending
+ * expense total; for income lines it is the income received (same field names).
+ */
 export const budgetLineActualsSchema = z.object({
   budgetLineId: z.string().uuid(),
   categoryId: z.string().uuid(),
+  kind: budgetLineKindSchema,
   plannedAnnual: moneySchema,
   /** plannedAnnual / 12, rounded for display - derived, never stored. */
   plannedMonthly: moneySchema,
@@ -68,15 +76,32 @@ export const budgetLineActualsSchema = z.object({
 });
 export type BudgetLineActuals = z.infer<typeof budgetLineActualsSchema>;
 
+const budgetFlowTotalsSchema = z.object({
+  plannedAnnual: moneySchema,
+  plannedMonthly: moneySchema,
+  actualMonth: moneySchema,
+  actualYearToDate: moneySchema,
+});
+
 export const budgetActualsSchema = z.object({
   budgetPeriodId: z.string().uuid(),
   year: z.number().int(),
   month: z.number().int().min(1).max(12),
+  /** Expense-line totals (kept for backward compatibility). */
   totals: z.object({
     plannedAnnual: moneySchema,
     plannedMonthly: moneySchema,
     spentMonth: moneySchema,
     spentYearToDate: moneySchema,
+  }),
+  /** Income-line totals; actual* = income received. */
+  income: budgetFlowTotalsSchema,
+  /** Profit = income − expenses: expected (planned) and current (actual); signed. */
+  profit: z.object({
+    plannedAnnual: signedMoneySchema,
+    plannedMonthly: signedMoneySchema,
+    actualMonth: signedMoneySchema,
+    actualYearToDate: signedMoneySchema,
   }),
   lines: z.array(budgetLineActualsSchema),
 });

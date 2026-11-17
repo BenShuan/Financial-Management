@@ -1,7 +1,7 @@
 # Domain model
 
 ```yaml
-version: 2.1.0
+version: 2.1.1
 last_updated: 2026-11-16
 breaking: "no"
 ```
@@ -25,7 +25,7 @@ breaking: "no"
 | `Category` | Hierarchical classification, seeded from the default list per household; user-assigned only; budget lines attach here. |
 | `Tag` | Cross-cutting label. |
 | `BudgetPeriod` | Annual planning bucket (one per year). |
-| `BudgetLine` | Annual planned amount per category within a period; monthly view derived as ÷ 12. |
+| `BudgetLine` | Annual planned amount per category (income or expense) within a period; monthly view derived as ÷ 12. Expected/current profit = income − expenses, derived. |
 | `Goal` | Savings or paydown target. |
 | `GoalContribution` | Movement toward a goal (manual or linked to transaction). |
 | `RecurringTemplate` | Definition of expected recurring cashflow. |

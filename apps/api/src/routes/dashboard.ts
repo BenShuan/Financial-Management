@@ -11,6 +11,7 @@ import {
   accounts,
   budgetLines,
   budgetPeriods,
+  categories,
   recurringOccurrences,
   recurringTemplates,
   transactions,
@@ -31,6 +32,7 @@ export async function spentOnCategories(
   categoryIds: string[],
   from: string,
   to: string,
+  type: "expense" | "income" = "expense",
 ): Promise<string> {
   if (categoryIds.length === 0) return "0.00";
   const headerResult = await db
@@ -39,7 +41,7 @@ export async function spentOnCategories(
     .where(
       and(
         eq(transactions.householdId, householdId),
-        eq(transactions.type, "expense"),
+        eq(transactions.type, type),
         inArray(transactions.categoryId, categoryIds),
         gte(transactions.transactionDate, from),
         lte(transactions.transactionDate, to),
@@ -52,7 +54,7 @@ export async function spentOnCategories(
     .where(
       and(
         eq(transactions.householdId, householdId),
-        eq(transactions.type, "expense"),
+        eq(transactions.type, type),
         inArray(transactionSplits.categoryId, categoryIds),
         gte(transactions.transactionDate, from),
         lte(transactions.transactionDate, to),
@@ -123,10 +125,22 @@ dashboardRouter.openapi(
       );
     let monthBudget = null;
     if (period) {
-      const lines = await db
-        .select()
-        .from(budgetLines)
-        .where(eq(budgetLines.budgetPeriodId, period.budgetPeriodId));
+      // Expense lines only: income lines are planned in the same period but not "budget spend".
+      const lines = (
+        await db
+          .select({
+            categoryId: budgetLines.categoryId,
+            plannedAmount: budgetLines.plannedAmount,
+          })
+          .from(budgetLines)
+          .innerJoin(categories, eq(categories.categoryId, budgetLines.categoryId))
+          .where(
+            and(
+              eq(budgetLines.budgetPeriodId, period.budgetPeriodId),
+              eq(categories.kind, "expense"),
+            ),
+          )
+      );
       const plannedAnnual = sumMoney(lines.map((l) => l.plannedAmount));
       const plannedMonthly = fromMinorUnits(toMinorUnits(plannedAnnual) / 12n);
       const spentMonth = await spentOnCategories(
