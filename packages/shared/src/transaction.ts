@@ -120,6 +120,8 @@ export const updateTransactionSchema = z.object({
   status: transactionStatusSchema.optional(),
   notes: z.string().max(500).nullable().optional(),
   tagIds: z.array(z.string().uuid()).max(20).optional(),
+  /** Replaces all split lines; `[]` removes them. Omit to keep the current splits. */
+  splits: z.array(splitInputSchema).max(20).optional(),
 });
 export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>;
 
