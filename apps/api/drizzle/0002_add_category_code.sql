@@ -1,4 +1,4 @@
-ALTER TABLE "categories" ADD COLUMN "code" text;
+ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "code" text;
 --> statement-breakpoint
 -- Best-effort backfill for the known dev-seed category names (apps/api/src/db/seed.ts),
 -- so households seeded before this migration also get codes without a reseed.
