@@ -8,7 +8,7 @@ import {
 } from "./money";
 
 // he-IL output embeds bidi marks and NBSPs; compare on the visible characters only.
-const visible = (s: string) => s.replace(/[‎‏؜  ]/g, " ").trim();
+const visible = (s: string) => s.replace(/[\u200e\u200f\u061c\u00a0\u202f]/g, " ").trim();
 
 describe("formatCurrency", () => {
   it("formats decimal strings as ILS with two fraction digits", () => {
