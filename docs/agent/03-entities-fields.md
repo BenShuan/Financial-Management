@@ -1,7 +1,7 @@
 # Entities and fields
 
 ```yaml
-version: 2.3.0
+version: 2.4.0
 last_updated: 2026-11-17
 breaking: "no"
 ```
@@ -390,7 +390,7 @@ Budgets are planned **once per year**; the monthly view is derived, never stored
 1. **Splits:** For a given `transaction_id`, sum(`TransactionSplit.amount`) equals `Transaction.amount` when one or more splits exist; if no splits, top-level `category_id` may apply.
 2. **Transfer:** `TransferLink` references two transactions on different accounts (or same account only if product explicitly allows—default **disallow** same account both legs).
 3. **Household scope:** Every child row’s `household_id` (where present) matches parent (`Account.household_id` = `Transaction.household_id` for that account).
-4. **Budget actuals:** Derived from transactions in period; do not duplicate spend totals in `BudgetLine`.
+4. **Budget actuals:** Derived from transactions in period; do not duplicate spend totals in `BudgetLine`. A line's flow (income or expense) is derived from its category `kind` (transfer-neutral categories cannot be budgeted); income lines track `income` transactions, expense lines track `expense` transactions. Expected profit = planned income − planned expenses; current profit = actual income − actual expenses (derived at read time).
 5. **User-initiated categorization:** `category_id` on `income`/`expense` is optional — NULL means uncategorized (e.g. freshly imported). Manual entry still requires a category or at least one `TransactionSplit` covering the full amount; when splits exist the header `category_id` is NULL. `transfer` legs never carry a category. Categorization is user-initiated only — no system process ever writes `category_id`.
 6. **Annual budgeting:** Budget amounts are planned annually per category. Monthly breakdowns (`planned_amount / 12`) and actuals are derived at read time, never persisted per month.
 

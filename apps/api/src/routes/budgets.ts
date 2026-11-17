@@ -12,7 +12,13 @@ import {
   updateBudgetPeriodSchema,
 } from "@financial-management/shared";
 import { db } from "../db/index.js";
-import { budgetLines, budgetPeriods, transactionSplits, transactions } from "../db/schema.js";
+import {
+  budgetLines,
+  budgetPeriods,
+  categories,
+  transactionSplits,
+  transactions,
+} from "../db/schema.js";
 import { emitAuditEvent } from "../lib/audit.js";
 import { createRouter } from "../lib/router.js";
 import { requireRole } from "../middleware/auth.js";
@@ -54,7 +60,22 @@ async function getHouseholdPeriod(householdId: string, budgetPeriodId: string) {
   return period;
 }
 
-const periodIdParam = z.object({ budgetPeriodId: z.string().uuid() });
+/** Every line must reference an income/expense category of this household. */
+async function assertBudgetableCategories(householdId: string, categoryIds: string[]) {
+  const unique = [...new Set(categoryIds)];
+  const rows = await db
+    .select({ categoryId: categories.categoryId, kind: categories.kind })
+    .from(categories)
+    .where(and(eq(categories.householdId, householdId), inArray(categories.categoryId, unique)));
+  if (rows.length !== unique.length) {
+    throw new HTTPException(400, { message: "קטגוריה לא נמצאה" });
+  }
+  if (rows.some((r) => r.kind === "transfer_neutral")) {
+    throw new HTTPException(400, { message: "ניתן לתכנן רק קטגוריות הכנסה או הוצאה" });
+  }
+}
+
+const periodIdParam =z.object({ budgetPeriodId: z.string().uuid() });
 
 export const budgetsRouter = createRouter();
 
@@ -188,6 +209,10 @@ budgetsRouter.openapi(
     const auth = c.get("auth");
     requireRole(auth, "admin");
     const input = c.req.valid("json");
+    await assertBudgetableCategories(
+      auth.householdId,
+      input.lines.map((l) => l.categoryId),
+    );
 
     const [existing] = await db
       .select({ id: budgetPeriods.budgetPeriodId })
@@ -258,6 +283,12 @@ budgetsRouter.openapi(
     const { budgetPeriodId } = c.req.valid("param");
     const input = c.req.valid("json");
     const before = await getHouseholdPeriod(auth.householdId, budgetPeriodId);
+    if (input.lines) {
+      await assertBudgetableCategories(
+        auth.householdId,
+        input.lines.map((l) => l.categoryId),
+      );
+    }
 
     if (input.status) {
       const allowed: Record<string, string[]> = {
@@ -275,26 +306,48 @@ budgetsRouter.openapi(
       throw new HTTPException(400, { message: "תוכנית סגורה אינה ניתנת לעריכה" });
     }
 
-    const [period] = await db
-      .update(budgetPeriods)
-      .set({
-        status: input.status,
-        rolloverEnabled: input.rolloverEnabled,
-        notes: input.notes,
-      })
-      .where(eq(budgetPeriods.budgetPeriodId, budgetPeriodId))
-      .returning();
+    // Drizzle rejects an empty SET (e.g. a lines-only edit), so only update when needed.
+    const changes = {
+      ...(input.status !== undefined && { status: input.status }),
+      ...(input.rolloverEnabled !== undefined && { rolloverEnabled: input.rolloverEnabled }),
+      ...(input.notes !== undefined && { notes: input.notes }),
+    };
+    const period =
+      Object.keys(changes).length > 0
+        ? (
+            await db
+              .update(budgetPeriods)
+              .set(changes)
+              .where(eq(budgetPeriods.budgetPeriodId, budgetPeriodId))
+              .returning()
+          )[0]
+        : before;
     if (!period) throw new HTTPException(500, { message: "עדכון התוכנית נכשל" });
 
     if (input.lines) {
-      await db.delete(budgetLines).where(eq(budgetLines.budgetPeriodId, budgetPeriodId));
-      await db.insert(budgetLines).values(
-        input.lines.map((line) => ({
-          budgetPeriodId,
-          categoryId: line.categoryId,
-          plannedAmount: line.plannedAmount,
-        })),
-      );
+      // Diff against existing lines so ids, rollover and carryover survive an edit.
+      const existing = await db
+        .select()
+        .from(budgetLines)
+        .where(eq(budgetLines.budgetPeriodId, budgetPeriodId));
+      const existingByCategory = new Map(existing.map((l) => [l.categoryId, l]));
+      const wanted = new Map(input.lines.map((l) => [l.categoryId, l.plannedAmount]));
+
+      const removedIds = existing.filter((l) => !wanted.has(l.categoryId)).map((l) => l.budgetLineId);
+      if (removedIds.length > 0) {
+        await db.delete(budgetLines).where(inArray(budgetLines.budgetLineId, removedIds));
+      }
+      for (const [categoryId, plannedAmount] of wanted) {
+        const current = existingByCategory.get(categoryId);
+        if (!current) {
+          await db.insert(budgetLines).values({ budgetPeriodId, categoryId, plannedAmount });
+        } else if (current.plannedAmount !== plannedAmount) {
+          await db
+            .update(budgetLines)
+            .set({ plannedAmount })
+            .where(eq(budgetLines.budgetLineId, current.budgetLineId));
+        }
+      }
     }
     const lines = await db
       .select()
@@ -307,6 +360,15 @@ budgetsRouter.openapi(
         entityType: "budget_period",
         entityId: budgetPeriodId,
         before: { status: before.status },
+      });
+    }
+    if (input.lines || input.rolloverEnabled !== undefined || input.notes !== undefined) {
+      await emitAuditEvent(auth, {
+        actionType: "budget_period.updated",
+        entityType: "budget_period",
+        entityId: budgetPeriodId,
+        before: { rolloverEnabled: before.rolloverEnabled },
+        after: { rolloverEnabled: period.rolloverEnabled, lineCount: lines.length },
       });
     }
     return c.json(serializePeriod(period, lines));
@@ -349,15 +411,34 @@ budgetsRouter.openapi(
       .from(budgetLines)
       .where(eq(budgetLines.budgetPeriodId, budgetPeriodId));
 
+    const kindByCategory = new Map(
+      lines.length === 0
+        ? []
+        : (
+            await db
+              .select({ categoryId: categories.categoryId, kind: categories.kind })
+              .from(categories)
+              .where(
+                inArray(
+                  categories.categoryId,
+                  lines.map((l) => l.categoryId),
+                ),
+              )
+          ).map((r) => [r.categoryId, r.kind]),
+    );
+
     const lineActuals = [];
     for (const line of lines) {
+      const kind: "income" | "expense" =
+        kindByCategory.get(line.categoryId) === "income" ? "income" : "expense";
       const [spentMonth, spentYearToDate] = await Promise.all([
-        spentOnCategories(auth.householdId, [line.categoryId], monthStart, monthEnd),
-        spentOnCategories(auth.householdId, [line.categoryId], yearStart, yearEnd),
+        spentOnCategories(auth.householdId, [line.categoryId], monthStart, monthEnd, kind),
+        spentOnCategories(auth.householdId, [line.categoryId], yearStart, yearEnd, kind),
       ]);
       lineActuals.push({
         budgetLineId: line.budgetLineId,
         categoryId: line.categoryId,
+        kind,
         plannedAnnual: line.plannedAmount,
         plannedMonthly: fromMinorUnits(toMinorUnits(line.plannedAmount) / 12n),
         spentMonth,
@@ -365,16 +446,39 @@ budgetsRouter.openapi(
       });
     }
 
-    const plannedAnnual = sumMoney(lineActuals.map((l) => l.plannedAnnual));
+    const expenseLines = lineActuals.filter((l) => l.kind === "expense");
+    const incomeLines = lineActuals.filter((l) => l.kind === "income");
+    const monthly = (annual: string) => fromMinorUnits(toMinorUnits(annual) / 12n);
+    const diff = (a: string, b: string) => fromMinorUnits(toMinorUnits(a) - toMinorUnits(b));
+
+    const expensePlannedAnnual = sumMoney(expenseLines.map((l) => l.plannedAnnual));
+    const expenseMonth = sumMoney(expenseLines.map((l) => l.spentMonth));
+    const expenseYtd = sumMoney(expenseLines.map((l) => l.spentYearToDate));
+    const incomePlannedAnnual = sumMoney(incomeLines.map((l) => l.plannedAnnual));
+    const incomeMonth = sumMoney(incomeLines.map((l) => l.spentMonth));
+    const incomeYtd = sumMoney(incomeLines.map((l) => l.spentYearToDate));
+
     return c.json({
       budgetPeriodId,
       year: period.year,
       month,
       totals: {
-        plannedAnnual,
-        plannedMonthly: fromMinorUnits(toMinorUnits(plannedAnnual) / 12n),
-        spentMonth: sumMoney(lineActuals.map((l) => l.spentMonth)),
-        spentYearToDate: sumMoney(lineActuals.map((l) => l.spentYearToDate)),
+        plannedAnnual: expensePlannedAnnual,
+        plannedMonthly: monthly(expensePlannedAnnual),
+        spentMonth: expenseMonth,
+        spentYearToDate: expenseYtd,
+      },
+      income: {
+        plannedAnnual: incomePlannedAnnual,
+        plannedMonthly: monthly(incomePlannedAnnual),
+        actualMonth: incomeMonth,
+        actualYearToDate: incomeYtd,
+      },
+      profit: {
+        plannedAnnual: diff(incomePlannedAnnual, expensePlannedAnnual),
+        plannedMonthly: diff(monthly(incomePlannedAnnual), monthly(expensePlannedAnnual)),
+        actualMonth: diff(incomeMonth, expenseMonth),
+        actualYearToDate: diff(incomeYtd, expenseYtd),
       },
       lines: lineActuals,
     });

@@ -72,6 +72,7 @@ export function BudgetLinePage() {
   const pct = Math.round(
     (Number(lineActuals.spentMonth) / Math.max(Number(lineActuals.plannedMonthly), 0.01)) * 100,
   );
+  const isIncome = lineActuals.kind === "income";
   const left = Number(lineActuals.plannedMonthly) - Number(lineActuals.spentMonth);
   const ytdPct = Math.round(
     (Number(lineActuals.spentYearToDate) / Math.max(Number(lineActuals.plannedAnnual), 0.01)) * 100,
@@ -105,11 +106,19 @@ export function BudgetLinePage() {
           {formatCurrencyWhole(lineActuals.plannedAnnual, { currency })}/שנה
         </p>
         <div className="mt-2.5">
-          <Chip variant={left >= 0 ? "positive" : "negative"}>
-            {left >= 0
-              ? `במסלול · נותרו ${formatCurrencyWhole(left.toFixed(2), { currency })}`
-              : `חריגה של ${formatCurrencyWhole(Math.abs(left).toFixed(2), { currency })}`}
-          </Chip>
+          {isIncome ? (
+            <Chip variant={left <= 0 ? "positive" : "neutral"}>
+              {left <= 0
+                ? `מעל התכנון ב-${formatCurrencyWhole(Math.abs(left).toFixed(2), { currency })}`
+                : `נותרו לקבל ${formatCurrencyWhole(left.toFixed(2), { currency })}`}
+            </Chip>
+          ) : (
+            <Chip variant={left >= 0 ? "positive" : "negative"}>
+              {left >= 0
+                ? `במסלול · נותרו ${formatCurrencyWhole(left.toFixed(2), { currency })}`
+                : `חריגה של ${formatCurrencyWhole(Math.abs(left).toFixed(2), { currency })}`}
+            </Chip>
+          )}
         </div>
       </Card>
 
@@ -134,7 +143,7 @@ export function BudgetLinePage() {
                   {formatDate(`${txn.transactionDate}T00:00:00`)}
                 </span>
               </span>
-              <AmountText amount={txn.amount} flow="expense" currency={currency} className="text-sm" />
+              <AmountText amount={txn.amount} flow={isIncome ? "income" : "expense"} currency={currency} className="text-sm" />
             </ListRow>
           ))}
         </ListCard>

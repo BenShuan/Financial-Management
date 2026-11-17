@@ -1,7 +1,7 @@
 # Agent conventions
 
 ```yaml
-version: 1.0.2
+version: 1.0.3
 last_updated: 2026-11-17
 breaking: "no"
 ```
@@ -48,7 +48,7 @@ Emit `AuditEvent` for security- and money-sensitive operations at minimum:
 
 - Transaction create/update/delete
 - Account create/update/archive
-- Budget period close
+- Budget period create/update/close
 - Import batch apply
 - Household member invite, invite acceptance, role change and removal
 - Category and tag archive, restore and delete

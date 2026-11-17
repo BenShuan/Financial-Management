@@ -25,6 +25,7 @@ import {
   sessionContextSchema,
   tagSchema,
   transactionSchema,
+  updateBudgetPeriodSchema,
   updateCategorySchema,
   updateTagSchema,
   updateTransactionSchema,
@@ -37,6 +38,7 @@ import {
   type CreateTransactionInput,
   type HouseholdRole,
   type InviteMemberInput,
+  type UpdateBudgetPeriodInput,
   type UpdateCategoryInput,
   type UpdateTagInput,
   type UpdateTransactionInput,
@@ -209,6 +211,24 @@ export function useCreateBudgetPeriod() {
       apiFetch("/api/budgets", budgetPeriodSchema, {
         method: "POST",
         body: createBudgetPeriodSchema.parse(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useUpdateBudgetPeriod() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      budgetPeriodId,
+      ...input
+    }: UpdateBudgetPeriodInput & { budgetPeriodId: string }) =>
+      apiFetch(`/api/budgets/${budgetPeriodId}`, budgetPeriodSchema, {
+        method: "PATCH",
+        body: updateBudgetPeriodSchema.parse(input),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["budgets"] });

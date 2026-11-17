@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { AccountLedgerPage } from "@/pages/accounts/AccountLedgerPage";
 import { AccountsPage } from "@/pages/accounts/AccountsPage";
 import { BudgetLinePage } from "@/pages/budgets/BudgetLinePage";
+import { BudgetEditPage } from "@/pages/budgets/BudgetEditPage";
 import { BudgetNewPage } from "@/pages/budgets/BudgetNewPage";
 import { BudgetsPage } from "@/pages/budgets/BudgetsPage";
 import { DashboardPage } from "@/pages/DashboardPage";
@@ -26,6 +27,7 @@ export function App() {
         <Route path="transactions/new" element={<TransactionNewPage />} />
         <Route path="budgets" element={<BudgetsPage />} />
         <Route path="budgets/new" element={<BudgetNewPage />} />
+        <Route path="budgets/:budgetPeriodId/edit" element={<BudgetEditPage />} />
         <Route path="budgets/lines/:budgetLineId" element={<BudgetLinePage />} />
         <Route path="import" element={<ImportPage />} />
         <Route path="reconciliation/:reconciliationId" element={<ReconciliationPage />} />
