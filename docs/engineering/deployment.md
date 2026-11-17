@@ -17,7 +17,6 @@ Live setup: **Vercel** (web) + **Render** (API) + **Neon** (Postgres). Productio
 | --- | --- |
 | `DATABASE_URL` | Neon connection string — **must include `?sslmode=require`** (there is no code-level ssl config; `pg` reads it from the URL) |
 | `WEB_ORIGIN` | Vercel origin(s), comma-separated, no trailing slash, e.g. `https://your-app.vercel.app` |
-| `ACCESS_SECRET` | Temporary bearer-token gate for all `/api/*` except `/api/health` |
 
 ### If a deploy fails
 
@@ -49,8 +48,7 @@ Use **Manual Deploy → Clear build cache & deploy** — this also rules out a s
 
 ```sh
 curl https://<service>.onrender.com/api/health                        # 200
-curl -H "Authorization: Bearer $ACCESS_SECRET" \
-     https://<service>.onrender.com/api/me                            # 401 "נדרשת התחברות" without a session cookie (gate passed)
+curl https://<service>.onrender.com/api/me                            # 401 "נדרשת התחברות" without a session cookie
 ```
 
-Then open the Vercel app, enter the access key, sign in (or register), and confirm the dashboard loads (exercises CORS + gate end-to-end). First request after idle is slow — the free Render instance spins down.
+Then open the Vercel app, sign in (or register), and confirm the dashboard loads (exercises CORS + session cookie end-to-end). First request after idle is slow — the free Render instance spins down.

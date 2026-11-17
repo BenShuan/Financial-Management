@@ -1,8 +1,8 @@
 # Engineering — tech stack and monorepo
 
 ```yaml
-version: 1.6.0
-last_updated: 2026-11-16
+version: 1.7.0
+last_updated: 2026-11-17
 breaking: "no"
 ```
 
@@ -77,8 +77,7 @@ Limits and pricing change; verify current quotas on each vendor’s site before 
 - **Web:** **Vercel**, root directory `apps/web`, config in `apps/web/vercel.json` (SPA rewrite for React Router, builds `packages/shared` first). Production deploys from `main`; other branches get preview deploys.
 - **API:** **Render** free web service, defined in `render.yaml` (Blueprint, Node pinned to 22). Builds `shared` + `api`; Drizzle migrations run **at boot** (`src/db/migrate.ts`), so the build needs no `DATABASE_URL`. Starts `node apps/api/dist/index.js`. Production deploys from `main`. Full runbook: [deployment.md](deployment.md).
 - **Database:** **Neon** free tier; `DATABASE_URL` (with `?sslmode=require`) set in Render. Seed manually with `pnpm --filter @financial-management/api db:seed` against Neon.
-- **Env vars:** Render — `DATABASE_URL`, `WEB_ORIGIN` (comma-separated Vercel origin(s), no trailing slash), `ACCESS_SECRET`; Vercel — `VITE_API_ORIGIN` (Render URL). Examples in `apps/api/.env.example` and `apps/web/.env.example`.
-- **Access gate (temporary):** until real auth lands, the API requires `Authorization: Bearer $ACCESS_SECRET` on all `/api/*` routes except `/api/health`; the web app prompts once for the key (`AccessGate`) and stores it in localStorage. Session auth now runs behind this gate; the gate itself is removed by a separate follow-up task.
+- **Env vars:** Render — `DATABASE_URL`, `WEB_ORIGIN` (comma-separated Vercel origin(s), no trailing slash); Vercel — `VITE_API_ORIGIN` (Render URL). Examples in `apps/api/.env.example` and `apps/web/.env.example`.
 
 ## What we are not standardizing here
 
@@ -88,6 +87,7 @@ Limits and pricing change; verify current quotas on each vendor’s site before 
 
 ## Changelog
 
+- `1.7.0` (2026-11-17): Removed the temporary `ACCESS_SECRET` gate (API middleware, web `AccessGate`, Render env var); session auth is the only access control.
 - `1.6.0` (2026-11-16): Real session auth replaces the dev-auth stub: register/login/logout endpoints, scrypt password hashing, DB-backed sessions in an HTTP-only cookie, household context from the authenticated membership, `User.last_login_at` updated on login. The temporary `ACCESS_SECRET` gate remains until removed separately.
 - `1.5.0` (2026-11-16): Added GitHub Actions CI (`.github/workflows/ci.yml`) and root `lint`/`test` Turborepo tasks. Packages opt in by defining a `lint`/`test` script; until they do, those steps are no-ops.
 - `1.4.0` (2026-07-03): Hardened Render deploy: Node pinned to 22 (`NODE_VERSION` + `.node-version`), migrations moved from build to boot, CORS accepts a normalized comma-separated `WEB_ORIGIN`, added `.env.example` files and [deployment.md](deployment.md) runbook.

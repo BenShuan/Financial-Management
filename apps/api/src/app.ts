@@ -8,7 +8,7 @@ import {
 } from "@financial-management/shared";
 import { corsOrigin } from "./lib/origins.js";
 import { createRouter } from "./lib/router.js";
-import { accessGate, csrfOriginCheck, sessionAuth } from "./middleware/auth.js";
+import { csrfOriginCheck, sessionAuth } from "./middleware/auth.js";
 import { authRouter } from "./routes/auth.js";
 import { buildSessionContext } from "./routes/session-context.js";
 import { accountsRouter } from "./routes/accounts.js";
@@ -54,11 +54,6 @@ const healthRoute = createRoute({
 
 app.openapi(healthRoute, (c) => {
   return c.json({ status: "ok" as const, service: "financial-management-api" });
-});
-
-app.use("/api/*", async (c, next) => {
-  if (c.req.path === "/api/health") return next();
-  return accessGate(c, next);
 });
 
 app.use("/api/*", csrfOriginCheck);
