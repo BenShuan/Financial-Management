@@ -26,5 +26,3 @@ services:
         sync: false
       - key: WEB_ORIGIN
         sync: false
-      - key: ACCESS_SECRET
-        sync: false

@@ -21,7 +21,7 @@ pnpm --filter @financial-management/api db:push        # dev-only schema push
 pnpm --filter @financial-management/api db:seed        # REQUIRED: dev auth needs a seeded owner
 ```
 
-Filter by the full package name (`@financial-management/api`); `.claude/launch.json` uses short names (`--filter api`) which may not match. API env: copy `apps/api/.env.example` (`DATABASE_URL`, `PORT`, `WEB_ORIGIN`, `ACCESS_SECRET`); web uses `VITE_API_ORIGIN`.
+Filter by the full package name (`@financial-management/api`); `.claude/launch.json` uses short names (`--filter api`) which may not match. API env: copy `apps/api/.env.example` (`DATABASE_URL`, `PORT`, `WEB_ORIGIN`); web uses `VITE_API_ORIGIN`.
 
 `packages/shared` (and `api-client`) compile to `dist/` and are consumed through `dist`, so **rebuild `shared` after editing it** (`pnpm --filter @financial-management/shared build`) or the apps won't see the change. Turbo does this for `build`/`typecheck`, not for `dev`.
 
@@ -36,7 +36,7 @@ Filter by the full package name (`@financial-management/api`); `.claude/launch.j
 
 - **Server owns the ledger.** Balance math (`apps/api/src/lib/balance.ts`, `recalcAccountBalance`), categorization, and reconciliation live only in the API; the web client must never implement authoritative money logic.
 - **Money** is a decimal string end to end (`NUMERIC(18,2)` in DB, `moneySchema` on the wire); never `number`/floats. Amounts are positive scalars, sign derives from transaction `type`. Time is stored UTC.
-- **Auth:** real sessions (FM-5). `routes/auth.ts` (`/api/auth/register|login|logout`), `lib/session.ts` (HTTP-only `fm_session` cookie, token hash in the `sessions` table), `lib/password.ts` (scrypt); `sessionAuth` resolves the cookie to the user's active membership (household + live role) per request. `accessGate` (`Authorization: Bearer $ACCESS_SECRET`, web `AccessGate`) is a temporary extra layer pending removal. Authorization is server-side via `requireRole(auth, minRole)` (viewer < member < admin < owner) — call it in every mutating route. `db:seed` needs `SEED_PASSWORD` (or prints a random one); `db:set-password` sets one for pre-existing users.
+- **Auth:** real sessions (FM-5). `routes/auth.ts` (`/api/auth/register|login|logout`), `lib/session.ts` (HTTP-only `fm_session` cookie, token hash in the `sessions` table), `lib/password.ts` (scrypt); `sessionAuth` resolves the cookie to the user's active membership (household + live role) per request. Authorization is server-side via `requireRole(auth, minRole)` (viewer < member < admin < owner) — call it in every mutating route. `db:seed` needs `SEED_PASSWORD` (or prints a random one); `db:set-password` sets one for pre-existing users.
 - **Audit:** call `emitAuditEvent` (`lib/audit.ts`) for transaction/account/budget/import/member-role operations (list in `docs/agent/06-agent-conventions.md`); keep snapshots small.
 - **Migrations** run automatically at API boot (`db/migrate.ts`, folder `apps/api/drizzle/`, committed SQL + `meta/` journal) — so after changing `db/schema.ts`, run `db:generate` and commit the output.
 

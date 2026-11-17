@@ -6,19 +6,6 @@ import { resolveSession } from "../lib/session.js";
 import type { AppEnv, AuthContext } from "../types.js";
 
 /**
- * Temporary deployment gate (removed by FM-6): when ACCESS_SECRET is set, every
- * request must carry `Authorization: Bearer <secret>`. No-op in local dev (secret unset).
- */
-export const accessGate = createMiddleware<AppEnv>(async (c, next) => {
-  const secret = process.env.ACCESS_SECRET;
-  if (!secret) return next();
-  if (c.req.header("authorization") !== `Bearer ${secret}`) {
-    throw new HTTPException(401, { message: "נדרש קוד גישה" });
-  }
-  await next();
-});
-
-/**
  * Session auth: resolves the HTTP-only session cookie to the user's household
  * membership (household + live role). Replaces the old dev-auth stub.
  */
