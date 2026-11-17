@@ -17,6 +17,21 @@ jobs:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Real Postgres for the API integration tests (apps/api/src/**/*.integration.test.ts).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fm
+          POSTGRES_PASSWORD: fm
+          POSTGRES_DB: financial_management
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fm -d financial_management"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -41,6 +56,8 @@ jobs:
 
       - name: Test
         run: pnpm test
+        env:
+          TEST_DATABASE_URL: postgresql://fm:fm@localhost:5432/financial_management
 
       - name: Build
         run: pnpm build

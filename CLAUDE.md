@@ -6,7 +6,7 @@ Hebrew-language (RTL) household finance app. pnpm + Turborepo monorepo (Node >=2
 
 ## Commands
 
-Run from the repo root unless noted. Verification gates: `pnpm lint` (ESLint flat config in `eslint.config.mjs`), `pnpm typecheck` and `pnpm test` (Vitest); CI runs all three plus `build`.
+Run from the repo root unless noted. Verification gates: `pnpm lint` (ESLint flat config in `eslint.config.mjs`), `pnpm typecheck` and `pnpm test` (Vitest); CI runs all three plus `build`. Tests in `apps/api/src/**/*.integration.test.ts` need Postgres and run only when `TEST_DATABASE_URL` is set (e.g. `TEST_DATABASE_URL=postgresql://fm:fm@localhost:5432/financial_management pnpm --filter @financial-management/api test` after `docker compose up -d`); otherwise they are skipped.
 
 ```bash
 pnpm install

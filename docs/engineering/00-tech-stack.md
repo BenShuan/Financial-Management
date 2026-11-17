@@ -1,7 +1,7 @@
 # Engineering — tech stack and monorepo
 
 ```yaml
-version: 1.8.0
+version: 1.9.0
 last_updated: 2026-11-17
 breaking: "no"
 ```
@@ -64,7 +64,7 @@ New apps (e.g. `apps/admin`) require an update to this document **before** scaff
 
 | Layer | Choice | Notes |
 |-------|--------|--------|
-| **CI** | **GitHub Actions** | `.github/workflows/ci.yml` runs on every PR and push to `main`: `pnpm install --frozen-lockfile`, then `lint` (ESLint 9 flat config in `eslint.config.mjs`, one `lint` script per package), `typecheck`, `test`, `build` through Turborepo (Node 22, pnpm 9.15.0 — same as `render.yaml`). Deploys stay with Vercel/Render on `main`. Private repos have monthly minute limits; public repos are more generous. |
+| **CI** | **GitHub Actions** | `.github/workflows/ci.yml` runs on every PR and push to `main`: `pnpm install --frozen-lockfile`, then `lint` (ESLint 9 flat config in `eslint.config.mjs`, one `lint` script per package), `typecheck`, `test`, `build` through Turborepo; the job has a `postgres:16` service container and passes `TEST_DATABASE_URL` so the API integration tests (`*.integration.test.ts`) run against a real database (Node 22, pnpm 9.15.0 — same as `render.yaml`). Deploys stay with Vercel/Render on `main`. Private repos have monthly minute limits; public repos are more generous. |
 | **Database** | **Neon** (serverless PostgreSQL) | Free tier with storage/compute limits; fine for early production. Alternative: **Supabase** (Postgres + extras) if you want managed auth/storage later—still update this table if you switch. |
 | **API** | **Render** (Web Service) | Free/hobby tiers have cold starts and limits; acceptable for low-traffic personal use. Alternatives: **Fly.io**, **Railway**—document if migrated. |
 | **Web** | **Cloudflare Pages** or **Vercel** | Static/Vite build output; set env for API base URL at build time. Pick one provider and document custom domain and preview deployments here when live. |
@@ -87,6 +87,7 @@ Limits and pricing change; verify current quotas on each vendor’s site before 
 
 ## Changelog
 
+- `1.9.0` (2026-11-17): Added API integration tests that run the ledger SQL of `recalcAccountBalance` against Postgres, and a Postgres service container in CI. The suite is opt-in via `TEST_DATABASE_URL` (skipped when unset, so plain `pnpm test` needs no database).
 - `1.8.0` (2026-11-17): Added ESLint (flat config, `typescript-eslint`, React Hooks and Fast Refresh rules for `apps/web`) and a `lint` script in every package, so the CI lint step now checks code instead of being a no-op.
 - `1.7.0` (2026-11-17): Removed the temporary `ACCESS_SECRET` gate (API middleware, web `AccessGate`, Render env var); session auth is the only access control.
 - `1.6.0` (2026-11-16): Real session auth replaces the dev-auth stub: register/login/logout endpoints, scrypt password hashing, DB-backed sessions in an HTTP-only cookie, household context from the authenticated membership, `User.last_login_at` updated on login. The temporary `ACCESS_SECRET` gate remains until removed separately.
