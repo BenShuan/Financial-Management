@@ -1,7 +1,7 @@
 # Entities and fields
 
 ```yaml
-version: 2.2.0
+version: 2.3.0
 last_updated: 2026-11-17
 breaking: "no"
 ```
@@ -191,10 +191,13 @@ Server-side login session. The browser holds an opaque random token in an HTTP-o
 | `kind` | yes | enum | income / expense / transfer_neutral |
 | `is_active` | yes | boolean | |
 | `created_at` | yes | timestamptz | |
-| `parent_category_id` | no | id | self-FK |
+| `parent_category_id` | no | id | self-FK (enforced in the DB). **Two levels only:** the parent is a top-level category of the same `kind` |
 | `icon` | no | string | |
-| `color` | no | string | |
+| `color` | no | string | Design-token name: primary / info / warning / violet / positive / negative |
+| `code` | no | string | Up to 3 chars; shortcut for categorizing in the transactions table. Unique per `kind` among active categories |
 | `sort_order` | no | int | |
+
+**Lifecycle:** `kind` is fixed at creation. Archiving (`is_active = false`) a parent archives its children; a child cannot be restored under an archived parent. A category can be **deleted** only when nothing references it (transactions, splits, budget lines, goals, recurring templates, normalized import rows) and it has no children — otherwise it is archived. Archived categories stay on historical rows but are not offered for new assignments.
 
 ### Default categories (seed data)
 
@@ -213,8 +216,10 @@ Seeded per household **at household creation**. After seeding they are plain `Ca
 | `household_id` | yes | id | FK |
 | `name` | yes | string | unique per household |
 | `created_at` | yes | timestamptz | |
-| `color` | no | string | |
-| `is_active` | no | boolean | default true |
+| `color` | no | string | Design-token name (same set as `Category.color`) |
+| `is_active` | no | boolean | default true. Archived tags stay on the transactions that carry them but are not offered for new ones |
+
+Deleting a tag removes its `TransactionTag` rows (the transactions themselves are unchanged).
 
 ---
 

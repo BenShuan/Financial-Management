@@ -41,6 +41,7 @@ export function TransactionNewPage() {
   const accounts = useAccounts();
   const categories = useCategories();
   const tags = useTags();
+  const activeTags = (tags.data ?? []).filter((tag) => tag.isActive);
   const createTransaction = useCreateTransaction();
 
   const form = useForm<CreateTransactionInput>({
@@ -260,9 +261,9 @@ export function TransactionNewPage() {
         </div>
       ) : null}
 
-      {type !== "transfer" && (tags.data?.length ?? 0) > 0 ? (
+      {type !== "transfer" && activeTags.length > 0 ? (
         <div className="mb-4 flex flex-wrap gap-2">
-          {tags.data!.map((tag) => {
+          {activeTags.map((tag) => {
             const selected = selectedTags.includes(tag.tagId);
             return (
               <button

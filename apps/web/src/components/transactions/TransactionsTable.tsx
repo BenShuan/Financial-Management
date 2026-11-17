@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Check } from "lucide-react";
-import type { Category, Transaction } from "@financial-management/shared";
+import type { Category, Tag, Transaction } from "@financial-management/shared";
 import { AmountText } from "@/components/ui/amount-text";
 import { Icon } from "@/components/ui/icon";
 import { colorDotClass } from "@/lib/labels";
 import { dateGroupLabel } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { TransactionTags } from "./TransactionTags";
 
 const HEBREW_LETTER = /^[א-ת]$/;
 const DIGIT = /^[0-9]$/;
@@ -31,6 +32,9 @@ export function TransactionsTable({
   onToggleRow,
   onCategoryChange,
   pendingTransactionId,
+  tagById,
+  activeTags,
+  onTagsChange,
 }: {
   groups: [string, Transaction[]][];
   categoryById: Map<string, Category>;
@@ -42,6 +46,9 @@ export function TransactionsTable({
   onToggleRow: (transactionId: string) => void;
   onCategoryChange: (transactionId: string, categoryId: string | null) => void;
   pendingTransactionId?: string;
+  tagById: Map<string, Tag>;
+  activeTags: Tag[];
+  onTagsChange: (transactionId: string, tagIds: string[]) => void;
 }) {
   const incomeCodeMap = useMemo(() => buildCodeMap(activeCategories, "income"), [activeCategories]);
   const expenseCodeMap = useMemo(
@@ -133,6 +140,14 @@ export function TransactionsTable({
                               {accountNameById.get(txn.accountId) ?? ""}
                               {txn.status === "pending" ? " · ממתין" : ""}
                             </span>
+                            <TransactionTags
+                              description={txn.description}
+                              tagIds={txn.tagIds}
+                              tagById={tagById}
+                              activeTags={activeTags}
+                              onChange={(tagIds) => onTagsChange(txn.transactionId, tagIds)}
+                              disabled={pendingTransactionId === txn.transactionId}
+                            />
                           </span>
                         </span>
                       </td>

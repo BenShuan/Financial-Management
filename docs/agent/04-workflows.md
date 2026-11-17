@@ -1,7 +1,7 @@
 # Workflows
 
 ```yaml
-version: 2.1.0
+version: 2.2.0
 last_updated: 2026-11-17
 breaking: "yes"
 ```
@@ -17,6 +17,13 @@ breaking: "yes"
    - The **last active owner** cannot be removed or demoted.
    - Emit `AuditEvent` for `household.member_invited`, `household.invite_accepted`, `household.member_role_changed` and `household.member_removed`.
 4. Create initial `Account` rows with `opening_balance` (and optionally first `AccountBalanceSnapshot`).
+
+## Categories and tags
+
+1. Any member (not viewer) can add, rename, recolor, re-parent, archive or restore categories and tags; `kind` cannot change after creation.
+2. Removing a category: delete only if unused and childless, otherwise **archive** (the API refuses the delete and says how many rows use it). Archiving a parent archives its children.
+3. Tags are assigned on entry and from the transactions list; a tag is unique by name within the household. Deleting a tag detaches it from all transactions.
+4. Emit `AuditEvent` for category/tag archive, restore and delete.
 
 ## Manual transaction entry
 

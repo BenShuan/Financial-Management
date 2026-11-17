@@ -10,7 +10,10 @@ import {
   createBudgetPeriodSchema,
   createImportBatchSchema,
   createReconciliationSessionSchema,
+  createCategorySchema,
+  createTagSchema,
   createTransactionSchema,
+  deletedResultSchema,
   householdMemberSchema,
   inviteMemberInputSchema,
   inviteMemberResultSchema,
@@ -23,15 +26,19 @@ import {
   tagSchema,
   transactionSchema,
   updateCategorySchema,
+  updateTagSchema,
   updateTransactionSchema,
   type BulkCategorizeInput,
   type CreateBudgetPeriodInput,
   type CreateImportBatchInput,
   type CreateReconciliationSessionInput,
+  type CreateCategoryInput,
+  type CreateTagInput,
   type CreateTransactionInput,
   type HouseholdRole,
   type InviteMemberInput,
   type UpdateCategoryInput,
+  type UpdateTagInput,
   type UpdateTransactionInput,
 } from "@financial-management/shared";
 import { apiFetch } from "./client";
@@ -350,5 +357,57 @@ export function useRemoveMember() {
         method: "DELETE",
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: HOUSEHOLD_MEMBERS_KEY }),
+  });
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCategoryInput) =>
+      apiFetch("/api/categories", categorySchema, {
+        method: "POST",
+        body: createCategorySchema.parse(input),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (categoryId: string) =>
+      apiFetch(`/api/categories/${categoryId}`, deletedResultSchema, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["categories"] }),
+  });
+}
+
+export function useCreateTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateTagInput) =>
+      apiFetch("/api/tags", tagSchema, { method: "POST", body: createTagSchema.parse(input) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tags"] }),
+  });
+}
+
+export function useUpdateTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tagId, input }: { tagId: string; input: UpdateTagInput }) =>
+      apiFetch(`/api/tags/${tagId}`, tagSchema, { method: "PATCH", body: updateTagSchema.parse(input) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tags"] }),
+  });
+}
+
+export function useDeleteTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (tagId: string) =>
+      apiFetch(`/api/tags/${tagId}`, deletedResultSchema, { method: "DELETE" }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["tags"] });
+      // Deleting a tag detaches it from transactions
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
   });
 }
