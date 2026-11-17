@@ -158,15 +158,19 @@ export function BudgetsPage() {
           <h2 className="mb-2 ms-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
             קטגוריות · {view === "month" ? monthLabel : "השנה"}
           </h2>
-          <div className="flex flex-col gap-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {data.lines.map((line) => {
               const category = categoryById.get(line.categoryId);
               const linePlanned = view === "month" ? line.plannedMonthly : line.plannedAnnual;
               const lineSpent = view === "month" ? line.spentMonth : line.spentYearToDate;
               const linePct = (Number(lineSpent) / Math.max(Number(linePlanned), 0.01)) * 100;
               return (
-                <Link key={line.budgetLineId} to={`/budgets/lines/${line.budgetLineId}`}>
-                  <Card className="p-3.5 transition-colors hover:bg-muted/40">
+                <Link
+                  key={line.budgetLineId}
+                  to={`/budgets/lines/${line.budgetLineId}`}
+                  className="flex"
+                >
+                  <Card className="w-full p-4 transition-colors hover:bg-muted/40">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="flex items-center gap-2 text-sm font-bold">
                         <span
