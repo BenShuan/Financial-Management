@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   date,
   integer,
@@ -150,7 +151,8 @@ export const categories = pgTable("categories", {
     .references(() => households.householdId),
   name: text("name").notNull(),
   kind: categoryKindEnum("kind").notNull(),
-  parentCategoryId: uuid("parent_category_id"),
+  /** Self-FK; two levels only (a parent is always top-level, same kind) — enforced by the API. */
+  parentCategoryId: uuid("parent_category_id").references((): AnyPgColumn => categories.categoryId),
   icon: text("icon"),
   color: text("color"),
   code: text("code"),

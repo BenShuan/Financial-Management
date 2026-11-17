@@ -7,6 +7,7 @@ import {
   useBulkCategorize,
   useCategories,
   useSession,
+  useTags,
   useTransactions,
   useUpdateTransaction,
 } from "@/api/hooks";
@@ -50,6 +51,7 @@ export function TransactionsPage() {
   const session = useSession();
   const accounts = useAccounts();
   const categories = useCategories();
+  const tags = useTags();
   const updateTransaction = useUpdateTransaction();
   const bulkCategorize = useBulkCategorize();
   const currency = session.data?.household.baseCurrency;
@@ -128,6 +130,8 @@ export function TransactionsPage() {
   };
 
   const activeCategories = (categories.data ?? []).filter((c) => c.isActive);
+  const tagById = new Map((tags.data ?? []).map((tag) => [tag.tagId, tag]));
+  const activeTags = (tags.data ?? []).filter((tag) => tag.isActive);
 
   return (
     <>
@@ -255,6 +259,11 @@ export function TransactionsPage() {
               }
               pendingTransactionId={
                 updateTransaction.isPending ? updateTransaction.variables?.transactionId : undefined
+              }
+              tagById={tagById}
+              activeTags={activeTags}
+              onTagsChange={(transactionId, tagIds) =>
+                updateTransaction.mutate({ transactionId, input: { tagIds } })
               }
             />
           )}
