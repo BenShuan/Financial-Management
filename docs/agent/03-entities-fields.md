@@ -1,8 +1,8 @@
 # Entities and fields
 
 ```yaml
-version: 2.1.0
-last_updated: 2026-11-16
+version: 2.2.0
+last_updated: 2026-11-17
 breaking: "no"
 ```
 
@@ -54,6 +54,8 @@ Types are logical; map to PostgreSQL as noted. All primary keys are UUID or ULID
 | `joined_at` | yes | timestamptz | |
 | `status` | yes | enum | active / invited / removed |
 | `invited_by` | no | id | FK → User |
+| `invite_token_hash` | no | string | SHA-256 of the one-time invite-link token; set only while `status = invited` (unique), cleared on accept or removal. The token itself is never stored |
+| `invite_expires_at` | no | timestamptz | When the invite link stops working (7 days after it is issued) |
 | `permissions_override` | no | jsonb | sparse overrides |
 
 ## Session

@@ -32,3 +32,20 @@ export const loginInputSchema = z.object({
 export type LoginInput = z.infer<typeof loginInputSchema>;
 
 export const logoutResponseSchema = z.object({ ok: z.literal(true) });
+
+/** POST /api/auth/invite-info - what an invite link is for (public; the token is the credential). */
+export const inviteTokenInputSchema = z.object({ token: z.string().min(20).max(200) });
+export const inviteInfoSchema = z.object({
+  householdName: z.string(),
+  email: z.string().email(),
+  displayName: z.string(),
+});
+export type InviteInfo = z.infer<typeof inviteInfoSchema>;
+
+/** POST /api/auth/accept-invite - sets the password, activates the membership, signs in. */
+export const acceptInviteInputSchema = z.object({
+  token: z.string().min(20).max(200),
+  password: passwordSchema,
+  displayName: z.string().trim().min(1, "יש להזין שם").max(100).optional(),
+});
+export type AcceptInviteInput = z.infer<typeof acceptInviteInputSchema>;

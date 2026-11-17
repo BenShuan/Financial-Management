@@ -1,8 +1,8 @@
 # Workflows
 
 ```yaml
-version: 2.0.1
-last_updated: 2026-11-16
+version: 2.1.0
+last_updated: 2026-11-17
 breaking: "yes"
 ```
 
@@ -10,7 +10,12 @@ breaking: "yes"
 
 1. Create `Household` with `base_currency` and `timezone`.
 2. **Seed default `Category` rows** for the new household (list in [03-entities-fields.md](03-entities-fields.md)); user may edit or delete them freely afterward.
-3. Invite or add `User` records; create `HouseholdMember` with role.
+3. **Invite members** (admin or owner): enter email, name and role. The system creates a `User` without a password and a `HouseholdMember` with `status = invited`, and returns a one-time link (`/accept-invite?token=…`, valid 7 days) that the inviter sends manually — there is no email delivery. Issuing a new link for the same email replaces the previous one; removing an invited member revokes it.
+   - The invitee opens the link, chooses a password and is signed in: `User.password_hash` is set, the member becomes `active` with `joined_at`, and the token is cleared.
+   - v1 limits: a user belongs to one household, so an email that already has a registered account cannot be invited.
+   - **Roles:** owners manage everyone; admins manage and assign only roles below their own (so only owners touch admins or grant `owner`). Any member can leave; removing a member ends their sessions immediately.
+   - The **last active owner** cannot be removed or demoted.
+   - Emit `AuditEvent` for `household.member_invited`, `household.invite_accepted`, `household.member_role_changed` and `household.member_removed`.
 4. Create initial `Account` rows with `opening_balance` (and optionally first `AccountBalanceSnapshot`).
 
 ## Manual transaction entry
@@ -20,6 +25,7 @@ breaking: "yes"
 3. For **transfer**: create two `Transaction` rows (outflow/inflow) and a `TransferLink` between them; enforce same household and compatible accounts; no category on transfer legs.
 4. Optional: `TransactionSplit` lines summing to transaction `amount`; `TransactionTag` associations.
 5. Emit `AuditEvent` for create/update/delete according to policy in [06-agent-conventions.md](06-agent-conventions.md).
+6. **Editing:** `splits` on update replace all split lines (`[]` removes them); changing `amount` on a split transaction requires sending matching splits in the same request, and a header `category_id` is rejected while splits exist. Changing a transfer leg's `amount` updates both legs. Referenced categories and tags must belong to the household. Writes for one transaction (legs, link, splits, tags) are atomic.
 
 ## CSV import
 

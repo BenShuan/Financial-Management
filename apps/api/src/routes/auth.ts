@@ -1,7 +1,10 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import {
+  acceptInviteInputSchema,
+  inviteInfoSchema,
+  inviteTokenInputSchema,
   loginInputSchema,
   logoutResponseSchema,
   registerInputSchema,
@@ -15,6 +18,7 @@ import { clearFailures, isThrottled, recordFailure } from "../lib/login-throttle
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import { createRouter } from "../lib/router.js";
 import { createSession, destroySession, findActiveMembership } from "../lib/session.js";
+import { hashInviteToken } from "./household.js";
 import type { AuthContext } from "../types.js";
 import { buildSessionContext } from "./session-context.js";
 
@@ -146,3 +150,113 @@ authRouter.openapi(logoutRoute, async (c) => {
   await destroySession(c);
   return c.json({ ok: true as const }, 200);
 });
+
+const INVALID_INVITE = "קישור ההזמנה אינו תקף או שפג תוקפו";
+
+/** Pending, unexpired invite for a link token, with the invitee and household. */
+async function findPendingInvite(token: string) {
+  const [row] = await db
+    .select({
+      memberId: householdMembers.householdMemberId,
+      householdId: householdMembers.householdId,
+      role: householdMembers.role,
+      expiresAt: householdMembers.inviteExpiresAt,
+      user: users,
+      householdName: households.name,
+    })
+    .from(householdMembers)
+    .innerJoin(users, eq(users.userId, householdMembers.userId))
+    .innerJoin(households, eq(households.householdId, householdMembers.householdId))
+    .where(
+      and(
+        eq(householdMembers.inviteTokenHash, hashInviteToken(token)),
+        eq(householdMembers.status, "invited"),
+      ),
+    );
+  if (!row || !row.expiresAt || row.expiresAt.getTime() < Date.now()) {
+    throw new HTTPException(400, { message: INVALID_INVITE });
+  }
+  return row;
+}
+
+authRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/auth/invite-info",
+    tags: ["Auth"],
+    summary: "Describe a pending invite link (household and invitee name)",
+    request: { body: { content: json(inviteTokenInputSchema), required: true } },
+    responses: {
+      200: { description: "Invite details", content: json(inviteInfoSchema) },
+      400: { description: "Invalid or expired link", content: json(errorSchema) },
+    },
+  }),
+  async (c) => {
+    const invite = await findPendingInvite(c.req.valid("json").token);
+    return c.json(
+      {
+        householdName: invite.householdName,
+        email: invite.user.email,
+        displayName: invite.user.displayName,
+      },
+      200,
+    );
+  },
+);
+
+authRouter.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/auth/accept-invite",
+    tags: ["Auth"],
+    summary: "Accept an invite: set a password, join the household and sign in",
+    request: { body: { content: json(acceptInviteInputSchema), required: true } },
+    responses: {
+      200: { description: "Joined and signed in", content: json(sessionContextSchema) },
+      400: { description: "Invalid or expired link", content: json(errorSchema) },
+      409: { description: "Invite already used", content: json(errorSchema) },
+    },
+  }),
+  async (c) => {
+    const input = c.req.valid("json");
+    const invite = await findPendingInvite(input.token);
+    // v1: a user belongs to one household, so an account that already has a password is not an invitee.
+    if (invite.user.passwordHash) {
+      throw new HTTPException(409, { message: "ההזמנה כבר נוצלה" });
+    }
+    const passwordHash = await hashPassword(input.password);
+    await db.transaction(async (tx) => {
+      await tx
+        .update(users)
+        .set({
+          passwordHash,
+          displayName: input.displayName ?? invite.user.displayName,
+          lastLoginAt: new Date(),
+        })
+        .where(eq(users.userId, invite.user.userId));
+      await tx
+        .update(householdMembers)
+        .set({
+          status: "active",
+          joinedAt: new Date(),
+          inviteTokenHash: null,
+          inviteExpiresAt: null,
+        })
+        .where(eq(householdMembers.householdMemberId, invite.memberId));
+    });
+
+    const auth: AuthContext = {
+      userId: invite.user.userId,
+      householdId: invite.householdId,
+      role: invite.role,
+    };
+    await emitAuditEvent(auth, {
+      actionType: "household.invite_accepted",
+      entityType: "household_member",
+      entityId: invite.memberId,
+      after: { role: invite.role },
+    });
+    await createSession(c, auth.userId, auth.householdId);
+    return c.json(await buildSessionContext(auth), 200);
+  },
+);

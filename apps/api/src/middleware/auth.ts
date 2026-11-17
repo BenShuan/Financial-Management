@@ -31,7 +31,7 @@ export const csrfOriginCheck = createMiddleware<AppEnv>(async (c, next) => {
   await next();
 });
 
-const ROLE_RANK: Record<HouseholdRole, number> = {
+export const ROLE_RANK: Record<HouseholdRole, number> = {
   viewer: 0,
   member: 1,
   admin: 2,

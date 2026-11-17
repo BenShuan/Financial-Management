@@ -119,6 +119,9 @@ export const householdMembers = pgTable(
     status: memberStatusEnum("status").notNull().default("active"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     invitedBy: uuid("invited_by").references(() => users.userId),
+    /** SHA-256 of the one-time invite link token; set while status = invited, cleared on accept/removal. */
+    inviteTokenHash: text("invite_token_hash").unique(),
+    inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
   },
   (t) => [uniqueIndex("household_members_household_user_ux").on(t.householdId, t.userId)],
 );

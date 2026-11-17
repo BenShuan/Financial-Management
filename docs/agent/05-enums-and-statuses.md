@@ -1,8 +1,8 @@
 # Enums and statuses
 
 ```yaml
-version: 2.0.0
-last_updated: 2026-07-02
+version: 2.0.1
+last_updated: 2026-11-17
 breaking: "yes"
 ```
 
@@ -18,7 +18,7 @@ Single source of truth for string enums stored in the database or API. Use **low
 
 | Enum | Values |
 |------|--------|
-| `HouseholdMember.role` | `owner`, `admin`, `member`, `viewer` |
+| `HouseholdMember.role` | `owner`, `admin`, `member`, `viewer` (viewer < member < admin < owner; admin+ manage members, only owners manage admins/owners) |
 | `HouseholdMember.status` | `active`, `invited`, `removed` |
 
 ## Account

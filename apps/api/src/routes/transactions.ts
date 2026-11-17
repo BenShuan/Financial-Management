@@ -5,12 +5,15 @@ import {
   bulkCategorizeSchema,
   createTransactionSchema,
   listTransactionsQuerySchema,
+  moneyEquals,
+  sumMoney,
   transactionSchema,
   updateTransactionSchema,
 } from "@financial-management/shared";
 import { db } from "../db/index.js";
 import {
   categories,
+  tags,
   transactionSplits,
   transactionTags,
   transactions,
@@ -118,6 +121,36 @@ async function getHouseholdTransaction(householdId: string, transactionId: strin
   return row;
 }
 
+/**
+ * Rejects category/tag ids that do not belong to the household, so a request cannot attach a
+ * transaction to another household's category or tag.
+ */
+async function assertHouseholdRefs(
+  householdId: string,
+  refs: { categoryIds?: readonly (string | null | undefined)[]; tagIds?: readonly string[] },
+) {
+  const categoryIds = [...new Set((refs.categoryIds ?? []).filter((id): id is string => !!id))];
+  if (categoryIds.length > 0) {
+    const found = await db
+      .select({ id: categories.categoryId })
+      .from(categories)
+      .where(and(eq(categories.householdId, householdId), inArray(categories.categoryId, categoryIds)));
+    if (found.length !== categoryIds.length) {
+      throw new HTTPException(404, { message: "הקטגוריה לא נמצאה" });
+    }
+  }
+  const tagIds = [...new Set(refs.tagIds ?? [])];
+  if (tagIds.length > 0) {
+    const found = await db
+      .select({ id: tags.tagId })
+      .from(tags)
+      .where(and(eq(tags.householdId, householdId), inArray(tags.tagId, tagIds)));
+    if (found.length !== tagIds.length) {
+      throw new HTTPException(404, { message: "התגית לא נמצאה" });
+    }
+  }
+}
+
 const transactionIdParam = z.object({ transactionId: z.string().uuid() });
 
 export const transactionsRouter = createRouter();
@@ -183,7 +216,7 @@ transactionsRouter.openapi(
     method: "post",
     path: "/api/transactions/bulk-categorize",
     tags: ["Transactions"],
-    summary: "Assign one category to many transactions (member+); transfers are skipped",
+    summary: "Assign one category to many transactions (member+); transfers and split transactions are skipped",
     request: {
       body: { content: { "application/json": { schema: bulkCategorizeSchema } } },
     },
@@ -218,6 +251,13 @@ transactionsRouter.openapi(
           inArray(transactions.transactionId, input.transactionIds),
           eq(transactions.householdId, auth.householdId),
           ne(transactions.type, "transfer"),
+          // Split transactions keep a NULL header category (invariant 5)
+          notExists(
+            db
+              .select({ splitId: transactionSplits.splitId })
+              .from(transactionSplits)
+              .where(eq(transactionSplits.transactionId, transactions.transactionId)),
+          ),
         ),
       )
       .returning();
@@ -253,11 +293,15 @@ transactionsRouter.openapi(
     requireRole(auth, "member");
     const input = c.req.valid("json");
 
-    // Household scoping of referenced accounts
+    // Household scoping of referenced accounts, categories and tags
     await getHouseholdAccount(auth.householdId, input.accountId);
     if (input.type === "transfer" && input.transferPeerAccountId) {
       await getHouseholdAccount(auth.householdId, input.transferPeerAccountId);
     }
+    await assertHouseholdRefs(auth.householdId, {
+      categoryIds: [input.categoryId, ...(input.splits ?? []).map((sp) => sp.categoryId)],
+      tagIds: input.tagIds,
+    });
 
     const base = {
       householdId: auth.householdId,
@@ -271,60 +315,69 @@ transactionsRouter.openapi(
       createdBy: auth.userId,
     };
 
-    let created: TransactionRow;
-    if (input.type === "transfer") {
-      const [fromLeg] = await db
-        .insert(transactions)
-        .values({ ...base, type: "transfer" })
-        .returning();
-      const [toLeg] = await db
-        .insert(transactions)
-        .values({ ...base, type: "transfer", accountId: input.transferPeerAccountId! })
-        .returning();
-      if (!fromLeg || !toLeg) throw new HTTPException(500, { message: "יצירת ההעברה נכשלה" });
-      await db.insert(transferLinks).values({
-        fromTransactionId: fromLeg.transactionId,
-        toTransactionId: toLeg.transactionId,
-      });
-      await recalcAccountBalance(input.transferPeerAccountId!);
-      created = fromLeg;
-    } else {
-      const hasSplits = (input.splits?.length ?? 0) > 0;
-      const [row] = await db
-        .insert(transactions)
-        .values({
-          ...base,
-          type: input.type,
-          // Splits supersede the header category (invariant 5)
-          categoryId: hasSplits ? null : input.categoryId,
-        })
-        .returning();
-      if (!row) throw new HTTPException(500, { message: "יצירת התנועה נכשלה" });
-      if (hasSplits) {
-        await db.insert(transactionSplits).values(
-          input.splits!.map((s) => ({
-            transactionId: row.transactionId,
-            categoryId: s.categoryId,
-            amount: s.amount,
-            note: s.note,
-          })),
+    // One DB transaction: a transfer's two legs, its link, splits and tags land together or not at all.
+    const created = await db.transaction(async (tx): Promise<TransactionRow> => {
+      let primary: TransactionRow;
+      if (input.type === "transfer") {
+        const [fromLeg] = await tx
+          .insert(transactions)
+          .values({ ...base, type: "transfer" })
+          .returning();
+        const [toLeg] = await tx
+          .insert(transactions)
+          .values({ ...base, type: "transfer", accountId: input.transferPeerAccountId! })
+          .returning();
+        if (!fromLeg || !toLeg) throw new HTTPException(500, { message: "יצירת ההעברה נכשלה" });
+        await tx.insert(transferLinks).values({
+          fromTransactionId: fromLeg.transactionId,
+          toTransactionId: toLeg.transactionId,
+        });
+        primary = fromLeg;
+      } else {
+        const hasSplits = (input.splits?.length ?? 0) > 0;
+        const [row] = await tx
+          .insert(transactions)
+          .values({
+            ...base,
+            type: input.type,
+            // Splits supersede the header category (invariant 5)
+            categoryId: hasSplits ? null : input.categoryId,
+          })
+          .returning();
+        if (!row) throw new HTTPException(500, { message: "יצירת התנועה נכשלה" });
+        if (hasSplits) {
+          await tx.insert(transactionSplits).values(
+            input.splits!.map((sp) => ({
+              transactionId: row.transactionId,
+              categoryId: sp.categoryId,
+              amount: sp.amount,
+              note: sp.note,
+            })),
+          );
+        }
+        primary = row;
+      }
+      if (input.tagIds && input.tagIds.length > 0) {
+        await tx.insert(transactionTags).values(
+          [...new Set(input.tagIds)].map((tagId) => ({ transactionId: primary.transactionId, tagId })),
         );
       }
-      created = row;
-    }
+      return primary;
+    });
 
-    if (input.tagIds && input.tagIds.length > 0) {
-      await db.insert(transactionTags).values(
-        input.tagIds.map((tagId) => ({ transactionId: created.transactionId, tagId })),
-      );
-    }
-
+    if (input.type === "transfer") await recalcAccountBalance(input.transferPeerAccountId!);
     await recalcAccountBalance(input.accountId);
     await emitAuditEvent(auth, {
       actionType: "transaction.created",
       entityType: "transaction",
       entityId: created.transactionId,
-      after: { type: input.type, amount: input.amount, accountId: input.accountId },
+      after: {
+        type: input.type,
+        amount: input.amount,
+        accountId: input.accountId,
+        splitCount: input.splits?.length ?? 0,
+        tagCount: input.tagIds?.length ?? 0,
+      },
     });
 
     const [hydrated] = await hydrateTransactions([created]);
@@ -355,70 +408,131 @@ transactionsRouter.openapi(
     const { transactionId } = c.req.valid("param");
     const input = c.req.valid("json");
     const before = await getHouseholdTransaction(auth.householdId, transactionId);
+    const isTransfer = before.type === "transfer";
 
-    // Invariant 5: null categoryId = uncategorized, a legitimate state (e.g. imports)
-    if (before.type === "transfer" && input.categoryId) {
-      throw new HTTPException(400, { message: "העברה אינה מקבלת קטגוריה" });
+    if (isTransfer && (input.categoryId || (input.splits?.length ?? 0) > 0)) {
+      throw new HTTPException(400, { message: "העברה אינה מקבלת קטגוריה או פיצולים" });
     }
 
-    const [row] = await db
-      .update(transactions)
-      .set({
-        amount: input.amount,
-        transactionDate: input.transactionDate,
-        description: input.description,
-        merchantName: input.merchantName,
-        categoryId: input.categoryId,
-        status: input.status,
-        notes: input.notes,
-      })
-      .where(eq(transactions.transactionId, transactionId))
-      .returning();
-    if (!row) throw new HTTPException(500, { message: "עדכון התנועה נכשל" });
-
-    if (input.tagIds) {
-      await db
-        .delete(transactionTags)
-        .where(eq(transactionTags.transactionId, transactionId));
-      if (input.tagIds.length > 0) {
-        await db
-          .insert(transactionTags)
-          .values(input.tagIds.map((tagId) => ({ transactionId, tagId })));
+    // Invariants 1 and 5: split lines always sum to the amount and the header category is NULL
+    // while splits exist. `input.splits`: undefined = keep, [] = remove, non-empty = replace.
+    const existingSplits = await db
+      .select()
+      .from(transactionSplits)
+      .where(eq(transactionSplits.transactionId, transactionId));
+    const effectiveAmount = input.amount ?? before.amount;
+    const nextSplits = input.splits ?? existingSplits;
+    const willHaveSplits = nextSplits.length > 0;
+    if (willHaveSplits) {
+      if (input.categoryId) {
+        throw new HTTPException(400, { message: "לתנועה מפוצלת אין קטגוריה ראשית" });
+      }
+      if (!moneyEquals(sumMoney(nextSplits.map((sp) => sp.amount)), effectiveAmount)) {
+        throw new HTTPException(400, {
+          message: "סכום הפיצולים חייב להיות שווה לסכום התנועה — יש לעדכן את הפיצולים יחד עם הסכום",
+        });
       }
     }
+    await assertHouseholdRefs(auth.householdId, {
+      categoryIds: [input.categoryId, ...(input.splits ?? []).map((sp) => sp.categoryId)],
+      tagIds: input.tagIds,
+    });
 
-    // Amount changes on a transfer leg must keep both legs equal
-    if (before.type === "transfer" && input.amount && input.amount !== before.amount) {
-      const [link] = await db
-        .select()
-        .from(transferLinks)
-        .where(
-          or(
-            eq(transferLinks.fromTransactionId, transactionId),
-            eq(transferLinks.toTransactionId, transactionId),
-          ),
-        );
-      if (link) {
-        const peerId =
-          link.fromTransactionId === transactionId
-            ? link.toTransactionId
-            : link.fromTransactionId;
-        const [peer] = await db
-          .update(transactions)
-          .set({ amount: input.amount })
-          .where(eq(transactions.transactionId, peerId))
-          .returning();
-        if (peer) await recalcAccountBalance(peer.accountId);
+    const { row, peerAccountId } = await db.transaction(async (tx) => {
+      // Invariant 5: null categoryId = uncategorized, a legitimate state (e.g. imports)
+      const changes = Object.fromEntries(
+        Object.entries({
+          amount: input.amount,
+          transactionDate: input.transactionDate,
+          description: input.description,
+          merchantName: input.merchantName,
+          categoryId: willHaveSplits ? null : input.categoryId,
+          status: input.status,
+          notes: input.notes,
+        }).filter(([, value]) => value !== undefined),
+      );
+      // A tags-only or splits-only PATCH has no column changes; UPDATE with an empty SET throws.
+      const [updated] =
+        Object.keys(changes).length > 0
+          ? await tx
+              .update(transactions)
+              .set(changes)
+              .where(eq(transactions.transactionId, transactionId))
+              .returning()
+          : await tx
+              .select()
+              .from(transactions)
+              .where(eq(transactions.transactionId, transactionId));
+      if (!updated) throw new HTTPException(500, { message: "עדכון התנועה נכשל" });
+
+      if (input.splits) {
+        await tx.delete(transactionSplits).where(eq(transactionSplits.transactionId, transactionId));
+        if (input.splits.length > 0) {
+          await tx.insert(transactionSplits).values(
+            input.splits.map((sp) => ({
+              transactionId,
+              categoryId: sp.categoryId,
+              amount: sp.amount,
+              note: sp.note,
+            })),
+          );
+        }
       }
-    }
 
+      if (input.tagIds) {
+        await tx.delete(transactionTags).where(eq(transactionTags.transactionId, transactionId));
+        if (input.tagIds.length > 0) {
+          await tx
+            .insert(transactionTags)
+            .values([...new Set(input.tagIds)].map((tagId) => ({ transactionId, tagId })));
+        }
+      }
+
+      // Amount changes on a transfer leg must keep both legs equal
+      let peerAccountId: string | undefined;
+      if (isTransfer && input.amount && input.amount !== before.amount) {
+        const [link] = await tx
+          .select()
+          .from(transferLinks)
+          .where(
+            or(
+              eq(transferLinks.fromTransactionId, transactionId),
+              eq(transferLinks.toTransactionId, transactionId),
+            ),
+          );
+        if (link) {
+          const peerId =
+            link.fromTransactionId === transactionId
+              ? link.toTransactionId
+              : link.fromTransactionId;
+          const [peer] = await tx
+            .update(transactions)
+            .set({ amount: input.amount })
+            .where(eq(transactions.transactionId, peerId))
+            .returning();
+          peerAccountId = peer?.accountId;
+        }
+      }
+      return { row: updated, peerAccountId };
+    });
+
+    if (peerAccountId) await recalcAccountBalance(peerAccountId);
     await recalcAccountBalance(row.accountId);
     await emitAuditEvent(auth, {
       actionType: "transaction.updated",
       entityType: "transaction",
       entityId: transactionId,
-      before: { amount: before.amount, categoryId: before.categoryId },
-      after: { amount: row.amount, categoryId: row.categoryId },
+      before: {
+        amount: before.amount,
+        categoryId: before.categoryId,
+        splitCount: existingSplits.length,
+      },
+      after: {
+        amount: row.amount,
+        categoryId: row.categoryId,
+        splitCount: willHaveSplits ? nextSplits.length : 0,
+        ...(input.tagIds ? { tagCount: input.tagIds.length } : {}),
+      },
     });
 
     const [hydrated] = await hydrateTransactions([row]);
@@ -449,30 +563,32 @@ transactionsRouter.openapi(
     const row = await getHouseholdTransaction(auth.householdId, transactionId);
 
     const affectedAccountIds = new Set<string>([row.accountId]);
-    if (row.type === "transfer") {
-      const [link] = await db
-        .select()
-        .from(transferLinks)
-        .where(
-          or(
-            eq(transferLinks.fromTransactionId, transactionId),
-            eq(transferLinks.toTransactionId, transactionId),
-          ),
-        );
-      if (link) {
-        const peerId =
-          link.fromTransactionId === transactionId
-            ? link.toTransactionId
-            : link.fromTransactionId;
-        const [peer] = await db
+    await db.transaction(async (tx) => {
+      if (row.type === "transfer") {
+        const [link] = await tx
           .select()
-          .from(transactions)
-          .where(eq(transactions.transactionId, peerId));
-        if (peer) affectedAccountIds.add(peer.accountId);
-        await db.delete(transactions).where(eq(transactions.transactionId, peerId));
+          .from(transferLinks)
+          .where(
+            or(
+              eq(transferLinks.fromTransactionId, transactionId),
+              eq(transferLinks.toTransactionId, transactionId),
+            ),
+          );
+        if (link) {
+          const peerId =
+            link.fromTransactionId === transactionId
+              ? link.toTransactionId
+              : link.fromTransactionId;
+          const [peer] = await tx
+            .select()
+            .from(transactions)
+            .where(eq(transactions.transactionId, peerId));
+          if (peer) affectedAccountIds.add(peer.accountId);
+          await tx.delete(transactions).where(eq(transactions.transactionId, peerId));
+        }
       }
-    }
-    await db.delete(transactions).where(eq(transactions.transactionId, transactionId));
+      await tx.delete(transactions).where(eq(transactions.transactionId, transactionId));
+    });
 
     for (const accountId of affectedAccountIds) {
       await recalcAccountBalance(accountId);
