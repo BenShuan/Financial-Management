@@ -1,7 +1,7 @@
 # Engineering — tech stack and monorepo
 
 ```yaml
-version: 1.9.0
+version: 1.10.0
 last_updated: 2026-11-17
 breaking: "no"
 ```
@@ -87,6 +87,7 @@ Limits and pricing change; verify current quotas on each vendor’s site before 
 
 ## Changelog
 
+- `1.10.0` (2026-11-17): Household member management API (`/api/household/members`, invite links via `/api/auth/invite-info` and `/api/auth/accept-invite`); migration `0004` adds `household_members.invite_token_hash` / `invite_expires_at`. Added a shared Postgres integration-test harness (`apps/api/src/test/harness.ts`).
 - `1.9.0` (2026-11-17): Added API integration tests that run the ledger SQL of `recalcAccountBalance` against Postgres, and a Postgres service container in CI. The suite is opt-in via `TEST_DATABASE_URL` (skipped when unset, so plain `pnpm test` needs no database).
 - `1.8.0` (2026-11-17): Added ESLint (flat config, `typescript-eslint`, React Hooks and Fast Refresh rules for `apps/web`) and a `lint` script in every package, so the CI lint step now checks code instead of being a no-op.
 - `1.7.0` (2026-11-17): Removed the temporary `ACCESS_SECRET` gate (API middleware, web `AccessGate`, Render env var); session auth is the only access control.

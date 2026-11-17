@@ -15,6 +15,7 @@ import { accountsRouter } from "./routes/accounts.js";
 import { categoriesRouter } from "./routes/categories.js";
 import { budgetsRouter } from "./routes/budgets.js";
 import { dashboardRouter } from "./routes/dashboard.js";
+import { householdRouter } from "./routes/household.js";
 import { importsRouter } from "./routes/imports.js";
 import { reconciliationRouter } from "./routes/reconciliation.js";
 import { transactionsRouter } from "./routes/transactions.js";
@@ -65,6 +66,8 @@ const PUBLIC_PATHS = new Set([
   "/api/auth/register",
   "/api/auth/login",
   "/api/auth/logout",
+  "/api/auth/invite-info",
+  "/api/auth/accept-invite",
 ]);
 app.use("/api/*", async (c, next) => {
   if (PUBLIC_PATHS.has(c.req.path)) return next();
@@ -87,6 +90,7 @@ const meRoute = createRoute({
 app.openapi(meRoute, async (c) => c.json(await buildSessionContext(c.get("auth"))));
 
 app.route("/", authRouter);
+app.route("/", householdRouter);
 app.route("/", accountsRouter);
 app.route("/", categoriesRouter);
 app.route("/", transactionsRouter);

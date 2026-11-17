@@ -11,6 +11,11 @@ import {
   createImportBatchSchema,
   createReconciliationSessionSchema,
   createTransactionSchema,
+  householdMemberSchema,
+  inviteMemberInputSchema,
+  inviteMemberResultSchema,
+  removeMemberResultSchema,
+  updateMemberRoleInputSchema,
   importBatchSchema,
   importMappingTemplateSchema,
   reconciliationSessionSchema,
@@ -24,6 +29,8 @@ import {
   type CreateImportBatchInput,
   type CreateReconciliationSessionInput,
   type CreateTransactionInput,
+  type HouseholdRole,
+  type InviteMemberInput,
   type UpdateCategoryInput,
   type UpdateTransactionInput,
 } from "@financial-management/shared";
@@ -299,5 +306,49 @@ export function useDeleteTransaction() {
         method: "DELETE",
       }),
     onSuccess: invalidate,
+  });
+}
+
+const HOUSEHOLD_MEMBERS_KEY = ["household", "members"] as const;
+
+export function useHouseholdMembers() {
+  return useQuery({
+    queryKey: HOUSEHOLD_MEMBERS_KEY,
+    queryFn: () => apiFetch("/api/household/members", z.array(householdMemberSchema)),
+  });
+}
+
+export function useInviteMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: InviteMemberInput) =>
+      apiFetch("/api/household/members/invite", inviteMemberResultSchema, {
+        method: "POST",
+        body: inviteMemberInputSchema.parse(input),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: HOUSEHOLD_MEMBERS_KEY }),
+  });
+}
+
+export function useUpdateMemberRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ memberId, role }: { memberId: string; role: HouseholdRole }) =>
+      apiFetch(`/api/household/members/${memberId}`, householdMemberSchema, {
+        method: "PATCH",
+        body: updateMemberRoleInputSchema.parse({ role }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: HOUSEHOLD_MEMBERS_KEY }),
+  });
+}
+
+export function useRemoveMember() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (memberId: string) =>
+      apiFetch(`/api/household/members/${memberId}`, removeMemberResultSchema, {
+        method: "DELETE",
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: HOUSEHOLD_MEMBERS_KEY }),
   });
 }

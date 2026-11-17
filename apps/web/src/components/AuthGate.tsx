@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { LogIn } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import {
   loginInputSchema,
   registerInputSchema,
@@ -11,12 +12,14 @@ import { ApiError, apiFetch } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AcceptInvitePage } from "@/pages/AcceptInvitePage";
 
 /**
  * Renders the app only for a signed-in user (session cookie validated by GET /api/me);
  * otherwise shows the login / register form. Authorization itself stays on the server.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
   const me = useQuery({
     queryKey: ["me"],
     queryFn: () => apiFetch("/api/me", sessionContextSchema),
@@ -24,6 +27,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     retry: (count, err) => !(err instanceof ApiError && err.status === 401) && count < 2,
   });
 
+  // Invite links work signed-out (the token is the credential) and replace any current session.
+  if (pathname === "/accept-invite") return <AcceptInvitePage />;
   if (me.isPending) return null;
   if (me.data) return <>{children}</>;
   if (me.error instanceof ApiError && me.error.status === 401) return <AuthForm />;

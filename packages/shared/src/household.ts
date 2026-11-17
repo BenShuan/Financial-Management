@@ -28,8 +28,33 @@ export const householdMemberSchema = z.object({
   status: memberStatusSchema,
   joinedAt: z.string().nullable(),
   displayName: z.string(),
+  email: z.string().email(),
+  /** Only while status = invited: when the invite link stops working. */
+  inviteExpiresAt: z.string().nullable(),
 });
 export type HouseholdMember = z.infer<typeof householdMemberSchema>;
+
+/** POST /api/household/members/invite */
+export const inviteMemberInputSchema = z.object({
+  email: z.string().trim().toLowerCase().email("כתובת אימייל לא תקינה"),
+  displayName: z.string().trim().min(1, "יש להזין שם").max(100),
+  role: householdRoleSchema,
+});
+export type InviteMemberInput = z.infer<typeof inviteMemberInputSchema>;
+
+/** The token is shown once; only its hash is stored. The web app builds the link from it. */
+export const inviteMemberResultSchema = z.object({
+  member: householdMemberSchema,
+  inviteToken: z.string(),
+  inviteExpiresAt: z.string(),
+});
+export type InviteMemberResult = z.infer<typeof inviteMemberResultSchema>;
+
+/** PATCH /api/household/members/{memberId} */
+export const updateMemberRoleInputSchema = z.object({ role: householdRoleSchema });
+export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleInputSchema>;
+
+export const removeMemberResultSchema = z.object({ removed: z.literal(true) });
 
 /** Session context returned by GET /api/me - current user + household + role. */
 export const sessionContextSchema = z.object({

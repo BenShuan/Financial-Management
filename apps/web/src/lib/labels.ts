@@ -1,4 +1,4 @@
-import type { AccountType } from "@financial-management/shared";
+import type { AccountType, HouseholdMember, HouseholdRole } from "@financial-management/shared";
 
 /** Category/account colors are stored as design-token names; map them to classes. */
 const DOT_CLASSES: Record<string, string> = {
@@ -28,4 +28,24 @@ export const ACCOUNT_TYPE_COLORS: Record<AccountType, string> = {
   cash: "bg-warning",
   credit: "bg-negative",
   other: "bg-violet",
+};
+
+export const ROLE_LABELS: Record<HouseholdRole, string> = {
+  owner: "בעלים",
+  admin: "מנהל",
+  member: "חבר",
+  viewer: "צופה",
+};
+
+export const ROLE_DESCRIPTIONS: Record<HouseholdRole, string> = {
+  owner: "שליטה מלאה, כולל ניהול מנהלים",
+  admin: "ניהול חברים וצפייה ועריכה",
+  member: "הוספה ועריכה של תנועות ותקציבים",
+  viewer: "צפייה בלבד",
+};
+
+export const MEMBER_STATUS_LABELS: Record<HouseholdMember["status"], string> = {
+  active: "פעיל",
+  invited: "הוזמן",
+  removed: "הוסר",
 };

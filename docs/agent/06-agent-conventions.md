@@ -1,8 +1,8 @@
 # Agent conventions
 
 ```yaml
-version: 1.0.0
-last_updated: 2026-04-04
+version: 1.0.1
+last_updated: 2026-11-17
 breaking: "no"
 ```
 
@@ -50,7 +50,7 @@ Emit `AuditEvent` for security- and money-sensitive operations at minimum:
 - Account create/update/archive
 - Budget period close
 - Import batch apply
-- Household member role change
+- Household member invite, invite acceptance, role change and removal
 
 Exact payload shape is implementation detail; keep snapshots **small** (truncate lists).
 
