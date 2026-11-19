@@ -58,7 +58,7 @@ export function AcceptInvitePage() {
         method: "POST",
         body: parsed.data,
       });
-      queryClient.clear();
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
       queryClient.setQueryData(["me"], ctx);
       navigate("/", { replace: true });
     } catch (err) {

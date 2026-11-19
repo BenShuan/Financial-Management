@@ -68,7 +68,9 @@ function AuthForm() {
         sessionContextSchema,
         { method: "POST", body: parsed.data },
       );
-      queryClient.clear();
+      // Drop any previous user's cached data, but keep the ["me"] query itself: AuthGate's
+      // observer is attached to it, and clear() would orphan that observer so it never re-renders.
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
       queryClient.setQueryData(["me"], ctx);
     } catch (err) {
       setError(err instanceof Error ? err.message : "הפעולה נכשלה");
