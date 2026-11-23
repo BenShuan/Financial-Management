@@ -1,8 +1,8 @@
 # Agent conventions
 
 ```yaml
-version: 1.0.3
-last_updated: 2026-11-17
+version: 1.1.0
+last_updated: 2026-11-23
 breaking: "no"
 ```
 
@@ -12,6 +12,10 @@ Rules for Cursor agents (and humans) when changing the system or generating code
 
 1. **`docs/agent/`** is the **source of truth** for domain scope, entities, enums, and workflows until code exists; after code exists, **docs and code must agree**.
 2. If implementation diverges, **fix docs or code** in the same change set; do not leave silent drift.
+
+## Notion project
+
+Tasks, roadmap, and a mirror of these docs live in the **Financial-Management** Notion project. Every session starts there (Agent Briefing, then the Tasks database), and before finishing, any change to `docs/` or to agent rules must be synced to the matching Notion pages and the task updated. The repo wins on conflict. Full procedure and links: [../engineering/notion-workflow.md](../engineering/notion-workflow.md).
 
 ## Read order
 

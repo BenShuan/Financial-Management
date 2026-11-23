@@ -2,6 +2,8 @@
 
 **Read order:** `00` → `06` (numbered files). This README is the index only.
 
+**Notion project (tasks + doc mirror):** every session starts in the Financial-Management Notion project and ends by syncing it; see [../engineering/notion-workflow.md](../engineering/notion-workflow.md).
+
 **Engineering / stack:** Monorepo layout, runtimes, OpenAPI, hosting, and CI are in [../engineering/00-tech-stack.md](../engineering/00-tech-stack.md).
 
 | Order | File | Purpose |

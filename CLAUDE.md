@@ -4,6 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Hebrew-language (RTL) household finance app. pnpm + Turborepo monorepo (Node >=20, pnpm 9.15; `.node-version` pins Node 22 for deploys). `AGENTS.md` is the onboarding index; the `.cursor/rules/*.mdc` files hold the detailed conventions summarized below.
 
+## Notion project (do this every session)
+
+Tasks, roadmap and a mirror of the docs live in the **Financial-Management** Notion project (root: https://app.notion.com/p/41a20f5aa25e8169bc13dd845ef777dc). At session start read **Agents → Agent Briefing** and **Task Protocol**, and take work from the **Tasks** database (`Status = Ready`, by `Priority`); create a task first if the request has none. Before finishing, sync any changed `docs/` or agent rules to the matching Notion pages (Knowledge `Source:` line, Decisions Log, Agent Briefing), and update the task (`Status`, `Branch`, `PR / Commit`). The repo wins on conflict. If Notion is unreachable, say so and list the updates still owed. Full procedure: `docs/engineering/notion-workflow.md`.
+
 ## Commands
 
 Run from the repo root unless noted. Verification gates: `pnpm lint` (ESLint flat config in `eslint.config.mjs`), `pnpm typecheck` and `pnpm test` (Vitest); CI runs all three plus `build`. Tests in `apps/api/src/**/*.integration.test.ts` need Postgres and run only when `TEST_DATABASE_URL` is set (e.g. `TEST_DATABASE_URL=postgresql://fm:fm@localhost:5432/financial_management pnpm --filter @financial-management/api test` after `docker compose up -d`); otherwise they are skipped.
