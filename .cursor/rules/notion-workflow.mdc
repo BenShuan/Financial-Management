@@ -1,0 +1,15 @@
+---
+description: Notion project is the task tracker and doc mirror; every session starts there and keeps it in sync
+alwaysApply: true
+---
+
+# Notion project (Financial-Management)
+
+- **Start of every session:** open the Notion project (root https://app.notion.com/p/41a20f5aa25e8169bc13dd845ef777dc), read **Agents → Agent Briefing** and **Task Protocol**, and take work from the **Tasks** database (`Status = Ready`, by `Priority`).
+- **Repo is the source of truth; Notion mirrors it.** If a Knowledge page's `Source:` version is older than the repo doc, update Notion from the repo.
+- **Before finishing:** if `docs/` or agent rules changed, sync the matching Notion Knowledge/Agents pages and the Decisions Log; update the task status, `Branch`, and `PR / Commit`.
+- **No task for the request?** Create one in Tasks first.
+- **Notion unreachable?** Say so, continue from the repo, and list the Notion updates still owed in the final message.
+- Never put secrets or real financial data in Notion.
+
+Full procedure: `docs/engineering/notion-workflow.md`.
