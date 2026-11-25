@@ -21,6 +21,8 @@ pnpm --filter @financial-management/bank-sync local    # runs from source with t
 # or: pnpm --filter @financial-management/bank-sync build && pnpm --filter @financial-management/bank-sync start
 ```
 
+On Windows you can instead double-click `apps/bank-sync/start-bank-sync.cmd` (or a desktop shortcut to it). It sets `FM_API_ORIGIN` to the production Render API (edit the line at the top if yours differs), wakes the API, builds `shared` and starts the app.
+
 The app prints a URL like `http://127.0.0.1:5199/?t=...` and opens it in your browser. Keep the terminal open while you use it; press Ctrl+C to stop (this also locks the vault).
 
 ## Use

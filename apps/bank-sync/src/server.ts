@@ -109,7 +109,8 @@ export function createLocalApp(deps: LocalAppDeps): Hono {
     return c.json({
       vaultExists: await vault.exists(),
       unlocked: vault.unlocked,
-      apiOrigin: config.apiOrigin || process.env.FM_API_ORIGIN || "",
+      // An explicit FM_API_ORIGIN (e.g. from start-bank-sync.cmd) wins over the last-used origin.
+      apiOrigin: process.env.FM_API_ORIGIN || config.apiOrigin || "",
       session: s
         ? { email: s.email, displayName: s.displayName ?? null, householdName: s.householdName ?? null, role: s.role ?? null, expiresAt: s.expiresAt }
         : null,
