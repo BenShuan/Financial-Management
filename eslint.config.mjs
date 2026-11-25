@@ -21,7 +21,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["apps/api/**/*.ts", "packages/**/*.ts", "*.config.{js,ts}", "apps/*/*.config.{js,ts}"],
+    files: ["apps/api/**/*.ts", "apps/bank-sync/**/*.ts", "packages/**/*.ts", "*.config.{js,ts}", "apps/*/*.config.{js,ts}"],
     languageOptions: { globals: globals.node },
   },
   {

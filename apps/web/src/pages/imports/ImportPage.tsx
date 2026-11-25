@@ -273,8 +273,15 @@ export function ImportPage() {
                   <Icon icon={Upload} className="size-4" strokeWidth={1.8} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold">
-                    {batch.fileName ?? "ייבוא ידני"}
+                  <span className="flex items-center gap-2">
+                    <span className="truncate text-sm font-bold">
+                      {batch.fileName ?? "ייבוא ידני"}
+                    </span>
+                    {batch.sourceType === "bank_sync" ? (
+                      <Chip variant="primary" className="shrink-0 px-2 py-0.5">
+                        סנכרון אוטומטי
+                      </Chip>
+                    ) : null}
                   </span>
                   <span className="block text-xs font-medium text-muted-foreground">
                     {formatDateFull(batch.importedAt)} · {batch.transactionCount} תנועות

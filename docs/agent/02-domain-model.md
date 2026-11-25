@@ -1,8 +1,8 @@
 # Domain model
 
 ```yaml
-version: 2.1.1
-last_updated: 2026-11-16
+version: 2.2.0
+last_updated: 2026-11-25
 breaking: "no"
 ```
 
@@ -35,6 +35,9 @@ breaking: "no"
 | `ImportRowRaw` | Unparsed CSV row payload. |
 | `ImportRowNormalized` | Parsed row ready for dedupe and promotion. |
 | `ImportMappingTemplate` | Saved column mapping for repeat imports. |
+| `SyncAccountLink` | Maps one bank/card provider account number (seen by bank sync) to a household `Account`, or marks it unmapped/ignored. |
+
+**Actors outside the server:** the **local bank-sync app** (`apps/bank-sync`) runs on a household admin's computer, holds the provider credentials in a local encrypted vault and calls the API with that admin's normal session. There is **no server-side credential or connection entity**: bank credentials never reach the API or the database.
 
 ## Relationship diagram (ERD)
 
@@ -72,6 +75,7 @@ flowchart TD
     ImportRowRaw[ImportRowRaw]
     ImportRowNormalized[ImportRowNormalized]
     ImportMappingTemplate[ImportMappingTemplate]
+    SyncAccountLink[SyncAccountLink]
 
     Household --> HouseholdMember
     User --> HouseholdMember
@@ -107,6 +111,8 @@ flowchart TD
     ImportBatch --> ImportRowRaw
     ImportRowRaw --> ImportRowNormalized
     Household --> ImportMappingTemplate
+    Household --> SyncAccountLink
+    SyncAccountLink -.->|0..1| Account
 ```
 
 ## Transaction-centric data flow
@@ -140,6 +146,31 @@ flowchart LR
     Transaction --> GoalContribution
     Transaction --> AuditEvent
 ```
+
+## Bank & card auto-fetch flow
+
+```mermaid
+flowchart LR
+    LocalApp[Local bank-sync app on user PC]
+    Provider[Bank or card website]
+    Upload[POST /api/sync/uploads]
+    Link[SyncAccountLink]
+    WebLink[Admin links account in web app]
+    ImportBatch[ImportBatch source bank_sync]
+    Transaction[Transaction uncategorized]
+    Balance[Account balance recalculated]
+
+    LocalApp -->|own credentials, local only| Provider
+    Provider -->|completed and pending txns| LocalApp
+    LocalApp -->|signed decimal strings, no credentials| Upload
+    Upload --> Link
+    WebLink --> Link
+    Link -->|linked| ImportBatch
+    ImportBatch --> Transaction
+    Transaction --> Balance
+```
+
+The server skips pending, zero and foreign-currency rows, derives `type` from the sign, takes the Asia/Jerusalem calendar date, and dedupes on `(account_id, external_ref)`. Rows of `unmapped` accounts are not stored; the local app re-scans that window on the next sync.
 
 ## References
 

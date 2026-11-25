@@ -1,8 +1,8 @@
 # Product scope
 
 ```yaml
-version: 2.1.0
-last_updated: 2026-11-23
+version: 2.2.0
+last_updated: 2026-11-25
 breaking: "no"
 ```
 
@@ -18,7 +18,7 @@ A **home financial management** system for a **shared household**: multiple memb
 - **Annual budget planning**: one planning pass per year with a planned amount per category for the whole year; monthly view derived as annual ÷ 12. Savings/paydown goals with contributions.
 - Recurring templates and occurrences; suggestions from transaction history.
 - CSV import pipeline: raw rows → normalized rows → dedupe → user categorization → transactions; reconciliation sessions against statement periods.
-- **Bank and credit card auto-fetch**: household-configured connections to Israeli providers via `israeli-bank-scrapers` (credentials encrypted at rest; admin/owner only). Fetched transactions enter the same import pipeline (dedupe → user categorization → transactions); the server stays the owner of the ledger and categorization stays manual.
+- **Bank and credit card auto-fetch**: a local bank-sync app on the user's own computer fetches from Israeli providers via `israeli-bank-scrapers` (v1: Discount, Isracard, Max; providers that need OTP are not supported). Credentials stay encrypted on that computer and **never reach the server**. The app (admin/owner login) uploads fetched **completed** transactions only (pending ones are skipped); the server normalizes them, maps each provider account number to a household account through a server-side account link that an admin sets in the web app, dedupes, and writes them through the import pipeline (uncategorized → user categorization). The server stays the owner of the ledger and categorization stays manual. Sync is triggered manually; scheduled sync is out of v1.
 
 ## Explicit non-goals (postponed)
 

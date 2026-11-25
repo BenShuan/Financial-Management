@@ -52,3 +52,18 @@ curl https://<service>.onrender.com/api/me                            # 401 "נ�
 ```
 
 Then open the Vercel app, sign in (or register), and confirm the dashboard loads (exercises CORS + session cookie end-to-end). First request after idle is slow — the free Render instance spins down.
+
+## Local bank-sync app (`apps/bank-sync`) — not deployed
+
+Bank and credit-card auto-fetch (FM-29) runs on a household admin's own computer, never on Render or Vercel. Neither service builds or starts it; Render's `pnpm install` installs its dependencies (small: `israeli-bank-scrapers-core` uses `puppeteer-core`, so **no Chromium is downloaded** anywhere), and no env vars are needed on Render/Vercel. The API side is just the normal routes `/api/sync/uploads` and `/api/sync/account-links`.
+
+Run it locally (Node >= 22.22.2, Chrome or Edge installed):
+
+```sh
+pnpm install
+pnpm --filter @financial-management/shared build
+pnpm --filter @financial-management/bank-sync build
+pnpm --filter @financial-management/bank-sync start   # or: ... local  (tsx, no build)
+```
+
+It serves one Hebrew page on `http://127.0.0.1:5199` (`FM_SYNC_PORT` to change; random port if busy) and opens it in the browser. Data (encrypted `vault.enc.json` + non-secret `config.json`) lives in `%APPDATA%\fm-bank-sync` (Windows), `~/Library/Application Support/fm-bank-sync` (macOS) or `~/.config/fm-bank-sync` (Linux), never in the repo. Point it at the production API by entering the Render URL on the page. Optional env: `FM_BROWSER_PATH`, `FM_SHOW_BROWSER=1`, `FM_BANK_SYNC_DIR`, `FM_API_ORIGIN`. Details: `apps/bank-sync/README.md`.

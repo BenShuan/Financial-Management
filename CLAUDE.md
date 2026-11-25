@@ -32,9 +32,10 @@ Filter by the full package name (`@financial-management/api`); `.claude/launch.j
 ## Architecture
 
 - `packages/shared` — Zod schemas, types, enums, and money helpers used by both apps. The single contract between API and web; must stay browser-safe (no Node imports). User-facing validation messages are in Hebrew.
-- `apps/api` — Hono + `@hono/zod-openapi` + Drizzle (Postgres). `src/app.ts` wires CORS, error handler, middleware, then mounts one router per module in `src/routes/` (accounts, categories, transactions, dashboard, budgets, imports, reconciliation). Routes are declared with `createRoute` so the OpenAPI spec (`/openapi.json`, Swagger at `/api/docs`) is generated from the same Zod schemas — keep them in sync. Always build routers with `createRouter()` (`src/lib/router.ts`), which gives validation failures a uniform `{error:"validation_error", issues}` 400 shape.
+- `apps/api` — Hono + `@hono/zod-openapi` + Drizzle (Postgres). `src/app.ts` wires CORS, error handler, middleware, then mounts one router per module in `src/routes/` (accounts, categories, transactions, dashboard, budgets, imports, reconciliation, sync). Routes are declared with `createRoute` so the OpenAPI spec (`/openapi.json`, Swagger at `/api/docs`) is generated from the same Zod schemas — keep them in sync. Always build routers with `createRouter()` (`src/lib/router.ts`), which gives validation failures a uniform `{error:"validation_error", issues}` 400 shape.
 - `apps/web` — Vite + React 19 + React Router v7 + TanStack Query + Tailwind/shadcn. `src/api/client.ts` is the fetch wrapper (Zod-parses responses with `shared`), `src/api/hooks.ts` the query hooks. Pages live in `src/pages/<module>/`.
 - `packages/api-client` — optional typed fetch helpers (hand-written).
+- `apps/bank-sync` — local-only bank/credit-card auto-fetch app (Hono on `127.0.0.1` + `israeli-bank-scrapers-core` driving local Chrome/Edge, scrypt + AES-256-GCM credential vault). Never deployed, no `dev` script (so `pnpm dev` skips it); run with `pnpm --filter @financial-management/bank-sync local`. It uploads near-raw rows to `POST /api/sync/uploads`; the API (`routes/sync.ts`, `lib/bank-sync-mapper.ts`, `lib/bank-sync-import.ts`) owns normalization, dedupe, account links and balances. Credentials never reach the API.
 
 ### Cross-cutting rules that span files
 

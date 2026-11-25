@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, LogOut, Repeat, Upload, Users } from "lucide-react";
+import { ChevronLeft, LogOut, RefreshCw, Repeat, Upload, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { logoutResponseSchema } from "@financial-management/shared";
 import { apiFetch } from "@/api/client";
@@ -11,6 +11,7 @@ import { ListCard, ListRow } from "@/components/ui/list-card";
 
 const items = [
   { to: "/import", label: "ייבוא והתאמות", description: "קובץ CSV והתאמת דפי חשבון", icon: Upload },
+  { to: "/sync", label: "סנכרון בנקים", description: "שיוך חשבונות לסנכרון אוטומטי", icon: RefreshCw },
   { to: "/recurring", label: "הוראות קבע", description: "תבניות ומועדים קרובים", icon: Repeat },
   { to: "/household", label: "משק בית", description: "חברים, קטגוריות והגדרות", icon: Users },
 ];

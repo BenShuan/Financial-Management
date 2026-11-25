@@ -80,6 +80,11 @@ export async function createHarness() {
       const allUserIds = [...new Set([...userIds, ...members.map((m) => m.userId)])];
       // Children first; transfer links, splits and tags cascade from transactions.
       await db.delete(schema.auditEvents).where(inArray(schema.auditEvents.householdId, householdIds));
+      // Import batches cascade to raw/normalized rows; sync links reference accounts.
+      await db.delete(schema.importBatches).where(inArray(schema.importBatches.householdId, householdIds));
+      await db
+        .delete(schema.syncAccountLinks)
+        .where(inArray(schema.syncAccountLinks.householdId, householdIds));
       await db.delete(schema.transactions).where(inArray(schema.transactions.householdId, householdIds));
       await db.delete(schema.tags).where(inArray(schema.tags.householdId, householdIds));
       await db.delete(schema.categories).where(inArray(schema.categories.householdId, householdIds));
