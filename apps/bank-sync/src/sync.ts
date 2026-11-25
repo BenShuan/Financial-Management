@@ -1,6 +1,8 @@
 import {
   BANK_SYNC_PROVIDERS,
   type BankSyncProvider,
+  type BankSyncSkipReason,
+  type BankSyncUpload,
   type BankSyncUploadAccountResult,
   type SyncAccountLinkStatus,
 } from "@financial-management/shared";
@@ -15,6 +17,17 @@ import type { Vault } from "./vault.js";
 export const UNMAPPED_HINT = "יש לשייך את החשבון באפליקציית הווב (עוד > סנכרון בנקים)";
 export const AGENT_VERSION = "bank-sync/0.1.0";
 
+/** A row the server did not import, rebuilt locally from the uploaded body (display only). */
+export interface SkippedRowReport {
+  reason: BankSyncSkipReason;
+  /** YYYY-MM-DD as scraped (UTC slice; display only). */
+  date: string;
+  description: string;
+  /** Signed decimal string as uploaded. */
+  amount: string;
+  currency: string | null;
+}
+
 export interface AccountReport {
   /** Last 4 digits only; the full number stays out of the page state. */
   last4: string;
@@ -25,6 +38,7 @@ export interface AccountReport {
   skippedPending: number;
   skippedInvalid: number;
   skippedForeign: number;
+  skippedRows: SkippedRowReport[];
   error: string | null;
   hint: string | null;
 }
@@ -57,7 +71,24 @@ export interface SyncDeps {
   now?: () => Date;
 }
 
-function toAccountReport(r: BankSyncUploadAccountResult): AccountReport {
+function skippedRows(r: BankSyncUploadAccountResult, body: BankSyncUpload): SkippedRowReport[] {
+  const sent = body.accounts.find((a) => a.accountNumber === r.accountNumber)?.txns ?? [];
+  return (r.skipped ?? []).flatMap(({ index, reason }) => {
+    const t = sent[index];
+    if (!t) return [];
+    return [
+      {
+        reason,
+        date: t.date.slice(0, 10),
+        description: t.description,
+        amount: t.chargedAmount,
+        currency: t.chargedCurrency ?? t.originalCurrency ?? null,
+      },
+    ];
+  });
+}
+
+function toAccountReport(r: BankSyncUploadAccountResult, body: BankSyncUpload): AccountReport {
   return {
     last4: r.accountNumber.slice(-4),
     status: r.status,
@@ -67,6 +98,7 @@ function toAccountReport(r: BankSyncUploadAccountResult): AccountReport {
     skippedPending: r.skippedPending,
     skippedInvalid: r.skippedInvalid,
     skippedForeign: r.skippedForeign,
+    skippedRows: skippedRows(r, body),
     error: r.error,
     hint: r.status === "unmapped" ? UNMAPPED_HINT : null,
   };
@@ -164,7 +196,7 @@ export class SyncRunner {
         report.droppedInvalid = droppedInvalid;
         try {
           const result = await api.upload(body);
-          report.accounts = result.accounts.map(toAccountReport);
+          report.accounts = result.accounts.map((r) => toAccountReport(r, body));
           advance = shouldAdvanceCursor(result.accounts);
         } catch (err) {
           report.error = toUserMessage(err);

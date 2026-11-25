@@ -47,6 +47,7 @@ function result(accountNumber: string, over: Partial<BankSyncUploadAccountResult
     skippedPending: 0,
     skippedInvalid: 0,
     skippedForeign: 0,
+    skipped: [],
     error: null,
     ...over,
   };
@@ -218,6 +219,19 @@ describe("SyncRunner", () => {
     expect(scrape.mock.calls.map((c) => c[0])).toEqual(["max"]);
     expect(report.providers.map((p) => p.provider)).toEqual(["max"]);
     expect((await configStore.load()).lastSuccessfulSyncAt.discount).toBeUndefined();
+  });
+
+  it("shows which rows the server skipped, rebuilt from the uploaded rows", async () => {
+    await setup();
+    const { api } = fakeApi("admin", async (b) => ({
+      accounts: b.accounts.map((a) =>
+        result(a.accountNumber, { skippedPending: 1, skipped: [{ index: 1, reason: "pending" }, { index: 9, reason: "invalid" }] }),
+      ),
+    }));
+    const report = await runner(async () => okScrape(), api).run();
+    expect(report.providers[0]?.accounts[0]?.skippedRows).toEqual([
+      { reason: "pending", date: "2024-05-02", description: "החזר", amount: "120.00", currency: null },
+    ]);
   });
 
   it("reports refused accounts and still advances the cursor", async () => {

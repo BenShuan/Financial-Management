@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   type BankSyncProvider,
+  type BankSyncSkippedRow,
   type ScrapedTransaction,
   fromMinorUnits,
   toMinorUnits,
@@ -35,6 +36,7 @@ export interface MappedAccount {
   skippedPending: number;
   skippedInvalid: number;
   skippedForeign: number;
+  skipped: BankSyncSkippedRow[];
 }
 
 const jerusalemFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -75,20 +77,24 @@ export function mapScrapedAccount(
   let skippedPending = 0;
   let skippedInvalid = 0;
   let skippedForeign = 0;
+  const skipped: BankSyncSkippedRow[] = [];
   const occurrences = new Map<string, number>();
 
-  for (const txn of txns) {
+  for (const [index, txn] of txns.entries()) {
     if (txn.status === "pending") {
       skippedPending++;
+      skipped.push({ index, reason: "pending" });
       continue;
     }
     if (!isIls(txn.chargedCurrency)) {
       skippedForeign++;
+      skipped.push({ index, reason: "foreign" });
       continue;
     }
     const minor = toMinorUnits(txn.chargedAmount);
     if (minor === 0n) {
       skippedInvalid++;
+      skipped.push({ index, reason: "invalid" });
       continue;
     }
     let transactionDate: string;
@@ -98,6 +104,7 @@ export function mapScrapedAccount(
       postedDate = txn.processedDate ? jerusalemDate(txn.processedDate) : null;
     } catch {
       skippedInvalid++;
+      skipped.push({ index, reason: "invalid" });
       continue;
     }
 
@@ -144,5 +151,5 @@ export function mapScrapedAccount(
     });
   }
 
-  return { rows, skippedPending, skippedInvalid, skippedForeign };
+  return { rows, skippedPending, skippedInvalid, skippedForeign, skipped };
 }

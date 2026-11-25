@@ -67,6 +67,17 @@ export const bankSyncUploadSchema = z
   .strict();
 export type BankSyncUpload = z.infer<typeof bankSyncUploadSchema>;
 
+/** Why the server did not import a scraped row (pending skipped by design, non-ILS, zero/bad date). */
+export const bankSyncSkipReasonSchema = z.enum(["pending", "foreign", "invalid"]);
+export type BankSyncSkipReason = z.infer<typeof bankSyncSkipReasonSchema>;
+
+export const bankSyncSkippedRowSchema = z.object({
+  /** Index into this account's uploaded `txns` (the server does not echo the row back). */
+  index: z.number().int().nonnegative(),
+  reason: bankSyncSkipReasonSchema,
+});
+export type BankSyncSkippedRow = z.infer<typeof bankSyncSkippedRowSchema>;
+
 export const bankSyncUploadAccountResultSchema = z.object({
   accountNumber: z.string(),
   linkId: z.string().uuid(),
@@ -80,6 +91,8 @@ export const bankSyncUploadAccountResultSchema = z.object({
   skippedPending: z.number().int(),
   skippedInvalid: z.number().int(),
   skippedForeign: z.number().int(),
+  /** Which rows were skipped and why (empty for unlinked accounts: they are not mapped). */
+  skipped: z.array(bankSyncSkippedRowSchema).default([]),
   /** Hebrew message when applying this account failed; other accounts still apply. */
   error: z.string().nullable(),
 });

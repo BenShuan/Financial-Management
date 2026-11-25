@@ -64,6 +64,11 @@ describe("mapScrapedAccount", () => {
     expect(result.skippedPending).toBe(1);
     expect(result.skippedInvalid).toBe(1);
     expect(result.skippedForeign).toBe(1);
+    expect(result.skipped).toEqual([
+      { index: 0, reason: "pending" },
+      { index: 1, reason: "invalid" },
+      { index: 2, reason: "foreign" },
+    ]);
     expect(result.rows).toHaveLength(2);
   });
 

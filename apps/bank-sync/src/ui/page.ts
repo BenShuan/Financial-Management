@@ -51,6 +51,10 @@ button:disabled { opacity: 0.6; cursor: default; }
 .notice { color: var(--foreground); background: color-mix(in oklch, var(--warning) 20%, transparent);
   border: 1px solid var(--warning); border-radius: 8px; padding: 8px 10px; margin-block-start: 8px; }
 ul.report { padding-inline-start: 20px; margin-block: 8px 0; }
+details.skipped { margin-block-start: 6px; }
+details.skipped summary { cursor: pointer; color: var(--muted-foreground, inherit); }
+details.skipped table { border-collapse: collapse; margin-block-start: 6px; font-size: 0.9rem; }
+details.skipped th, details.skipped td { text-align: start; padding: 3px 8px; border-block-end: 1px solid var(--border); }
 .ltr { direction: ltr; unicode-bidi: isolate; }
 `;
 
@@ -212,6 +216,23 @@ const SCRIPT = `
     return s;
   }
 
+  var SKIP_REASON = { pending: "ממתינה (טרם חויבה)", foreign: "מטבע חוץ", invalid: "סכום אפס או תאריך לא תקין" };
+  function skippedList(rows) {
+    var d = el("details", { class: "skipped" }, [el("summary", { text: "הצג " + rows.length + " תנועות שדולגו" })]);
+    d.appendChild(el("table", null, [
+      el("thead", null, [el("tr", null, [el("th", { text: "תאריך" }), el("th", { text: "תיאור" }), el("th", { text: "סכום" }), el("th", { text: "סיבה" })])]),
+      el("tbody", null, rows.map(function (r) {
+        return el("tr", null, [
+          el("td", { class: "ltr", text: r.date }),
+          el("td", { text: r.description || "ללא תיאור" }),
+          el("td", { class: "ltr", text: r.amount + (r.currency && r.currency !== "ILS" ? " " + r.currency : "") }),
+          el("td", { text: SKIP_REASON[r.reason] || r.reason }),
+        ]);
+      })),
+    ]));
+    return d;
+  }
+
   function accountLine(a) {
     var statusText = a.status === "linked" ? "משויך" : a.status === "ignored" ? "מוסתר" : "לא משויך";
     var li = el("li", null, [
@@ -220,6 +241,7 @@ const SCRIPT = `
       " נוספו " + a.created + ", כפולות " + a.duplicates + ", ממתינות שדולגו " + a.skippedPending +
         (a.skippedForeign ? ", מט״ח שדולגו " + a.skippedForeign : "") + (a.skippedInvalid ? ", לא תקינות " + a.skippedInvalid : ""),
     ]);
+    if (a.skippedRows && a.skippedRows.length) li.appendChild(skippedList(a.skippedRows));
     if (a.error) li.appendChild(el("div", { class: "error", text: a.error }));
     if (a.hint) li.appendChild(el("div", { class: "muted", text: a.hint }));
     return li;

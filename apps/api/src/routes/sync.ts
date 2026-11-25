@@ -116,6 +116,7 @@ syncRouter.openapi(
         skippedPending: 0,
         skippedInvalid: 0,
         skippedForeign: 0,
+        skipped: [],
         error: null,
       };
 
@@ -136,6 +137,7 @@ syncRouter.openapi(
           result.skippedPending = mapped.skippedPending;
           result.skippedInvalid = mapped.skippedInvalid;
           result.skippedForeign = mapped.skippedForeign;
+          result.skipped = mapped.skipped;
           try {
             const applied = await applyBankSyncAccount(auth, {
               accountId: link.accountId,

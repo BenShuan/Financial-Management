@@ -225,6 +225,8 @@ describe.skipIf(!TEST_DATABASE_URL)("bank sync API (Postgres)", () => {
       skippedPending: 1,
       error: null,
     });
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0]?.reason).toBe("pending");
     expect(result.importBatchId).toBeTruthy();
 
     const { eq } = await dbHelpers();
