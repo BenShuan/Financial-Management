@@ -13,6 +13,9 @@ const PORT = 5199;
 const TOKEN = "launch-token-abc";
 const HOST = `127.0.0.1:${PORT}`;
 const UUID = "11111111-1111-4111-8111-111111111111";
+// Placeholder fixtures, not real credentials.
+const BANK_PW = "dummy-bank-pw";
+const APP_PW = "dummy-app-pw";
 
 let dir: string;
 let vault: Vault;
@@ -80,11 +83,11 @@ describe("write-only credentials", () => {
 
     const save = await req("/local/providers/discount", {
       method: "PUT",
-      body: { id: "012345678", password: "dummy-bank-pw", num: "XY99" },
+      body: { id: "012345678", password: BANK_PW, num: "XY99" },
     });
     expect(save.status).toBe(200);
     const saveText = await save.text();
-    expect(saveText).not.toContain("dummy-bank-pw");
+    expect(saveText).not.toContain(BANK_PW);
 
     fetchFn.mockResolvedValueOnce(
       new Response(
@@ -98,17 +101,17 @@ describe("write-only credentials", () => {
     );
     const login = await req("/local/login", {
       method: "POST",
-      body: { apiOrigin: "https://api.example/", email: "a@b.co", password: "dummy-app-pw" },
+      body: { apiOrigin: "https://api.example/", email: "a@b.co", password: APP_PW },
     });
     expect(login.status).toBe(200);
     const loginText = await login.text();
     expect(loginText).not.toContain("session-token-XYZ");
     const [, init] = fetchFn.mock.calls[0] as [string, RequestInit];
     expect(fetchFn.mock.calls[0]?.[0]).toBe("https://api.example/api/auth/login");
-    expect(String(init.body)).toContain("dummy-app-pw");
+    expect(String(init.body)).toContain(APP_PW);
 
     const state = await (await req("/local/state")).text();
-    for (const secret of ["dummy-bank-pw", "012345678", "XY99", "session-token-XYZ", "dummy-app-pw", "correct horse"]) {
+    for (const secret of [BANK_PW, "012345678", "XY99", "session-token-XYZ", APP_PW, "correct horse"]) {
       expect(state).not.toContain(secret);
     }
     const parsed = JSON.parse(state) as { providers: { id: string; saved: boolean }[]; session: { email: string } };
