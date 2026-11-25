@@ -3,6 +3,7 @@ import {
   Ellipsis,
   House,
   Plus,
+  RefreshCw,
   Repeat,
   Target,
   Upload,
@@ -34,6 +35,7 @@ const sidebarItems: NavItem[] = [
   { to: "/transactions", label: "תנועות", icon: ArrowLeftRight },
   { to: "/budgets", label: "תקציבים", icon: Target },
   { to: "/import", label: "ייבוא", icon: Upload },
+  { to: "/sync", label: "סנכרון בנקים", icon: RefreshCw },
   { to: "/recurring", label: "הוראות קבע", icon: Repeat },
   { to: "/household", label: "משק בית", icon: Users },
 ];
