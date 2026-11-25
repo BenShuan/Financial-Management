@@ -1,7 +1,7 @@
 # Entities and fields
 
 ```yaml
-version: 2.5.0
+version: 2.5.1
 last_updated: 2026-11-25
 breaking: "no"
 ```
@@ -97,7 +97,7 @@ Server-side login session. The browser holds an opaque random token in an HTTP-o
 | `name` | yes | string | |
 | `type` | yes | enum | checking / savings / cash / credit / other |
 | `opening_balance` | yes | money | |
-| `current_balance` | yes | money | maintained by app rules |
+| `current_balance` | yes | money | maintained by app rules; recomputed when `opening_balance` is edited |
 | `is_active` | yes | boolean | |
 | `created_at` | yes | timestamptz | |
 | `institution_name` | no | string | |

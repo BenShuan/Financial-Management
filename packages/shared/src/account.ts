@@ -18,18 +18,34 @@ export const accountSchema = z.object({
 });
 export type Account = z.infer<typeof accountSchema>;
 
+const accountName = z.string().trim().min(1, "יש להזין שם חשבון");
+const institutionName = z.string().trim().max(120, "שם המוסד ארוך מדי");
+const accountMask = z.string().trim().max(12, "ספרות החשבון ארוכות מדי");
+const accountNotes = z.string().max(500, "ההערות ארוכות מדי");
+
 export const createAccountSchema = z.object({
-  name: z.string().trim().min(1, "יש להזין שם חשבון"),
+  name: accountName,
   type: accountTypeSchema,
-  institutionName: z.string().trim().max(120).optional(),
-  accountMask: z.string().trim().max(12).optional(),
+  institutionName: institutionName.optional(),
+  accountMask: accountMask.optional(),
   openingBalance: signedMoneySchema.default("0.00"),
   creditLimit: moneySchema.optional(),
-  notes: z.string().max(500).optional(),
+  notes: accountNotes.optional(),
 });
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
 
-export const updateAccountSchema = createAccountSchema.partial().extend({
+/**
+ * PATCH body: `undefined` = leave unchanged, `null` = clear (nullable fields only).
+ * No defaults, so a partial update never resets openingBalance.
+ */
+export const updateAccountSchema = z.object({
+  name: accountName.optional(),
+  type: accountTypeSchema.optional(),
+  institutionName: institutionName.nullable().optional(),
+  accountMask: accountMask.nullable().optional(),
+  openingBalance: signedMoneySchema.optional(),
+  creditLimit: moneySchema.nullable().optional(),
+  notes: accountNotes.nullable().optional(),
   isActive: z.boolean().optional(),
 });
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;

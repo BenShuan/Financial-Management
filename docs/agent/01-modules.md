@@ -1,7 +1,7 @@
 # Modules
 
 ```yaml
-version: 2.1.0
+version: 2.1.1
 last_updated: 2026-11-25
 breaking: "no"
 ```
@@ -15,6 +15,7 @@ Household profile (`base_currency`, `timezone`), member invitations and roles, a
 ## Account & Balance Ledger
 
 Account types (checking, savings, cash, credit, other), opening/current balance maintenance, optional **balance snapshots** over time, and **reconciliation sessions** tied to statement periods.
+Account updates (admin+) clear nullable fields when sent `null`; editing the opening balance triggers a server-side recalculation of the current balance.
 
 ## Transaction Engine
 
