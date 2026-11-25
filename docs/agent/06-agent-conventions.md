@@ -1,8 +1,8 @@
 # Agent conventions
 
 ```yaml
-version: 1.1.0
-last_updated: 2026-11-23
+version: 1.2.0
+last_updated: 2026-11-25
 breaking: "no"
 ```
 
@@ -53,11 +53,19 @@ Emit `AuditEvent` for security- and money-sensitive operations at minimum:
 - Transaction create/update/delete
 - Account create/update/archive
 - Budget period create/update/close
-- Import batch apply
+- Import batch apply (`import_batch.applied`, also for `bank_sync` batches: counts only, never descriptions or account numbers)
+- Bank-sync account link change (`sync_account_link.updated`: status, account id, last 4 digits)
 - Household member invite, invite acceptance, role change and removal
 - Category and tag archive, restore and delete
 
 Exact payload shape is implementation detail; keep snapshots **small** (truncate lists).
+
+## Bank sync
+
+- No API endpoint, table, log or audit snapshot may accept or store bank/card credentials. They live only in the local app's encrypted vault (`apps/bank-sync`).
+- Scraping (`israeli-bank-scrapers-core`) happens only in `apps/bank-sync`; never add a scraper or browser dependency to `apps/api`.
+- The local app uploads near-raw rows (signed decimal strings); it must not implement balance, categorization, dedupe or type logic. The API owns mapping, dedupe and balances.
+- The local app binds `127.0.0.1` only, checks the `Host` header and a per-launch token, and never logs credentials or the session token.
 
 ## SQL and migrations
 

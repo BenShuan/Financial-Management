@@ -18,6 +18,7 @@ import { dashboardRouter } from "./routes/dashboard.js";
 import { householdRouter } from "./routes/household.js";
 import { importsRouter } from "./routes/imports.js";
 import { reconciliationRouter } from "./routes/reconciliation.js";
+import { syncRouter } from "./routes/sync.js";
 import { transactionsRouter } from "./routes/transactions.js";
 
 const app = createRouter();
@@ -98,6 +99,7 @@ app.route("/", dashboardRouter);
 app.route("/", budgetsRouter);
 app.route("/", importsRouter);
 app.route("/", reconciliationRouter);
+app.route("/", syncRouter);
 
 app.doc("/openapi.json", {
   openapi: "3.0.0",

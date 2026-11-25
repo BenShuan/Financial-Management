@@ -1,0 +1,15 @@
+---
+description: Local-only bank/credit-card auto-fetch app (security, contract, no ledger logic) for apps/bank-sync
+globs: apps/bank-sync/**/*
+alwaysApply: false
+---
+
+# Local bank-sync app (`apps/bank-sync`)
+
+- Runs only on the user's computer. **Never deployed**; no `dev` script (keeps `pnpm dev` from starting it). Node >=22.22.2 is checked at runtime in `src/index.ts`, not via `engines`.
+- **Security:** bind `127.0.0.1` only; every request passes the `Host` check, every `/local/*` route the per-launch `X-Local-Token`; no CORS headers. Credentials and the API session token are write-only toward the page and are never logged, echoed or put in reports. Show only "saved / not saved".
+- **Vault:** `src/vault.ts` (scrypt + AES-256-GCM, fresh IV per save, key only in memory). Data dir comes from `src/paths.ts` (OS app-data dir), never the repo.
+- **Contract:** upload with the shared `bankSyncUploadSchema` (`POST /api/sync/uploads`), one request per provider. Convert JS numbers to signed decimal strings in `src/serialize.ts` via integer agorot. Do **not** implement type, dedupe, date, balance or categorization logic here; the API owns them.
+- **Scraper:** `israeli-bank-scrapers-core` pinned exactly, loaded only inside `src/scrape.ts` (dynamic import). Tests mock the `ScrapeFn` port and never load the library or a browser. Never enable `verbose`, `DEBUG` or failure screenshots. Never retry a failed login.
+- **Cursor:** advance `lastSuccessfulSyncAt[provider]` only when the scrape and upload succeeded and no account result is `unmapped` or has an `error`.
+- Hebrew RTL page (`src/ui/page.ts`): logical CSS properties, Hearth tokens copied from `apps/web/src/index.css`, `textContent` only.

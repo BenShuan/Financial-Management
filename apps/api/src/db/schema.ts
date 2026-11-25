@@ -15,6 +15,7 @@ import {
 import {
   ACCOUNT_TYPES,
   BALANCE_SNAPSHOT_SOURCES,
+  BANK_SYNC_PROVIDERS,
   BUDGET_PERIOD_STATUSES,
   CATEGORY_KINDS,
   DETECTION_CANDIDATE_STATUSES,
@@ -30,6 +31,7 @@ import {
   RECONCILIATION_STATUSES,
   RECURRING_FLOW_TYPES,
   RECURRING_FREQUENCIES,
+  SYNC_ACCOUNT_LINK_STATUSES,
   TRANSACTION_STATUSES,
   TRANSACTION_TYPES,
 } from "@financial-management/shared";
@@ -67,6 +69,11 @@ export const reconciliationStatusEnum = pgEnum(
 export const balanceSnapshotSourceEnum = pgEnum(
   "balance_snapshot_source",
   BALANCE_SNAPSHOT_SOURCES,
+);
+export const bankSyncProviderEnum = pgEnum("bank_sync_provider", BANK_SYNC_PROVIDERS);
+export const syncAccountLinkStatusEnum = pgEnum(
+  "sync_account_link_status",
+  SYNC_ACCOUNT_LINK_STATUSES,
 );
 
 const createdAt = () =>
@@ -176,31 +183,36 @@ export const tags = pgTable(
   (t) => [uniqueIndex("tags_household_name_ux").on(t.householdId, t.name)],
 );
 
-export const transactions = pgTable("transactions", {
-  transactionId: uuid("transaction_id").defaultRandom().primaryKey(),
-  householdId: uuid("household_id")
-    .notNull()
-    .references(() => households.householdId),
-  accountId: uuid("account_id")
-    .notNull()
-    .references(() => accounts.accountId),
-  type: transactionTypeEnum("type").notNull(),
-  /** Positive scalar; direction comes from `type` (and transfer legs). */
-  amount: money("amount").notNull(),
-  transactionDate: date("transaction_date").notNull(),
-  postedDate: date("posted_date"),
-  description: text("description").notNull(),
-  merchantName: text("merchant_name"),
-  /** User-assigned only (docs invariant 5); null for transfer legs or when splits exist. */
-  categoryId: uuid("category_id").references(() => categories.categoryId),
-  status: transactionStatusEnum("status").notNull().default("cleared"),
-  notes: text("notes"),
-  importBatchId: uuid("import_batch_id"),
-  isRecurringCandidate: boolean("is_recurring_candidate").notNull().default(false),
-  externalRef: text("external_ref"),
-  createdBy: uuid("created_by").references(() => users.userId),
-  createdAt: createdAt(),
-});
+export const transactions = pgTable(
+  "transactions",
+  {
+    transactionId: uuid("transaction_id").defaultRandom().primaryKey(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.householdId),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.accountId),
+    type: transactionTypeEnum("type").notNull(),
+    /** Positive scalar; direction comes from `type` (and transfer legs). */
+    amount: money("amount").notNull(),
+    transactionDate: date("transaction_date").notNull(),
+    postedDate: date("posted_date"),
+    description: text("description").notNull(),
+    merchantName: text("merchant_name"),
+    /** User-assigned only (docs invariant 5); null for transfer legs or when splits exist. */
+    categoryId: uuid("category_id").references(() => categories.categoryId),
+    status: transactionStatusEnum("status").notNull().default("cleared"),
+    notes: text("notes"),
+    importBatchId: uuid("import_batch_id"),
+    isRecurringCandidate: boolean("is_recurring_candidate").notNull().default(false),
+    /** Source dedupe key (bank sync: `bs1:` hash); unique per account, NULLs allowed. */
+    externalRef: text("external_ref"),
+    createdBy: uuid("created_by").references(() => users.userId),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("transactions_account_external_ref_ux").on(t.accountId, t.externalRef)],
+);
 
 export const transactionSplits = pgTable("transaction_splits", {
   splitId: uuid("split_id").defaultRandom().primaryKey(),
@@ -466,3 +478,32 @@ export const accountBalanceSnapshots = pgTable("account_balance_snapshots", {
   source: balanceSnapshotSourceEnum("source").notNull().default("system"),
   createdAt: createdAt(),
 });
+
+/**
+ * Server-side mapping of a bank-sync provider account number to a household account (FM-29).
+ * Invariant (enforced by the API): status = 'linked' iff account_id is not null.
+ * No credentials are ever stored server-side; they live only in the local bank-sync app.
+ */
+export const syncAccountLinks = pgTable(
+  "sync_account_links",
+  {
+    syncAccountLinkId: uuid("sync_account_link_id").defaultRandom().primaryKey(),
+    householdId: uuid("household_id")
+      .notNull()
+      .references(() => households.householdId),
+    provider: bankSyncProviderEnum("provider").notNull(),
+    externalAccountNumber: text("external_account_number").notNull(),
+    accountId: uuid("account_id").references(() => accounts.accountId),
+    status: syncAccountLinkStatusEnum("status").notNull().default("unmapped"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).defaultNow().notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("sync_account_links_household_provider_number_ux").on(
+      t.householdId,
+      t.provider,
+      t.externalAccountNumber,
+    ),
+  ],
+);

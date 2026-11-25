@@ -1,9 +1,9 @@
 # Workflows
 
 ```yaml
-version: 2.2.2
-last_updated: 2026-11-17
-breaking: "yes"
+version: 2.3.0
+last_updated: 2026-11-25
+breaking: "no"
 ```
 
 ## Household onboarding
@@ -42,6 +42,16 @@ breaking: "yes"
 4. Detect duplicates against existing transactions and within the batch (fingerprint); duplicates are **flagged, not skipped**.
 5. Create `Transaction` rows **immediately** from all parseable normalized rows — **uncategorized** (`category_id = NULL`), duplicates included; set `ImportBatch.status = completed` and counts; recalculate account balance.
 6. User categorizes later on the **Transactions page** (`/transactions`): inline per-row category select or bulk-assign to selected rows. Categorization stays user-initiated only.
+
+## Bank & card auto-fetch (local app)
+
+1. A household **admin/owner** starts the local app `apps/bank-sync` on their computer, unlocks its local vault (master passphrase), signs in to the API with their normal account (only the session token is kept, in the vault) and saves credentials for Discount, Isracard and/or Max. Credentials never leave that computer.
+2. User presses **"סנכרן עכשיו"**. The app re-checks the live role via `GET /api/me` (admin/owner required) and scrapes each provider sequentially, once (no retry on a wrong password). Window: first run `lookbackDays` (default 90) back; afterwards the last successful sync minus `overlapDays` (default 14).
+3. Per provider, the app uploads all scraped accounts in one `POST /api/sync/uploads` (signed decimal strings, no credentials, no raw provider payload).
+4. The API upserts a `SyncAccountLink` per account number. For `linked` accounts with an active `Account` it maps rows (skips pending, zero and foreign-currency rows; `type` from sign; Asia/Jerusalem date; `bs1:` `external_ref`), skips rows whose `(account_id, external_ref)` already exists, writes one `ImportBatch` (`source_type = bank_sync`, only if something new), creates **uncategorized, cleared** transactions, recalculates the balance and emits `import_batch.applied`. `unmapped`/`ignored` accounts import nothing.
+5. In the web app (**עוד > סנכרון בנקים**, `/sync`) an admin links each new account number to a household account, or hides it.
+6. The local app advances its per-provider cursor only when the scrape and upload succeeded and no account came back `unmapped` or with an error, so the next sync re-scans the window and imports rows of newly linked accounts. Re-syncing never duplicates (unique `external_ref`).
+7. Categorization stays manual on `/transactions`. Note: the first sync can overlap transactions imported earlier by CSV (no cross-source dedupe); set the first lookback to start after the last CSV import.
 
 ## Reconciliation
 

@@ -18,3 +18,4 @@ export * from "./import.js";
 export * from "./reconciliation.js";
 export * from "./dashboard.js";
 export * from "./auth.js";
+export * from "./bank-sync.js";

@@ -13,6 +13,7 @@ import { MorePage } from "@/pages/MorePage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { ReconciliationPage } from "@/pages/reconciliation/ReconciliationPage";
 import { RecurringPage } from "@/pages/RecurringPage";
+import { SyncPage } from "@/pages/sync/SyncPage";
 import { TransactionNewPage } from "@/pages/transactions/TransactionNewPage";
 import { TransactionsPage } from "@/pages/transactions/TransactionsPage";
 
@@ -31,6 +32,7 @@ export function App() {
         <Route path="budgets/lines/:budgetLineId" element={<BudgetLinePage />} />
         <Route path="import" element={<ImportPage />} />
         <Route path="reconciliation/:reconciliationId" element={<ReconciliationPage />} />
+        <Route path="sync" element={<SyncPage />} />
         <Route path="recurring" element={<RecurringPage />} />
         <Route path="household" element={<HouseholdPage />} />
         <Route path="more" element={<MorePage />} />

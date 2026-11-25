@@ -19,10 +19,12 @@ import {
   inviteMemberResultSchema,
   removeMemberResultSchema,
   updateMemberRoleInputSchema,
+  updateSyncAccountLinkSchema,
   importBatchSchema,
   importMappingTemplateSchema,
   reconciliationSessionSchema,
   sessionContextSchema,
+  syncAccountLinkSchema,
   tagSchema,
   transactionSchema,
   updateBudgetPeriodSchema,
@@ -41,6 +43,7 @@ import {
   type UpdateBudgetPeriodInput,
   type UpdateCategoryInput,
   type UpdateTagInput,
+  type UpdateSyncAccountLinkInput,
   type UpdateTransactionInput,
 } from "@financial-management/shared";
 import { apiFetch } from "./client";
@@ -428,6 +431,38 @@ export function useDeleteTag() {
       void queryClient.invalidateQueries({ queryKey: ["tags"] });
       // Deleting a tag detaches it from transactions
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+const SYNC_ACCOUNT_LINKS_KEY = ["sync-account-links"] as const;
+
+/** Accounts discovered by the local bank-sync app, with their link to an app account (FM-29). */
+export function useSyncAccountLinks() {
+  return useQuery({
+    queryKey: SYNC_ACCOUNT_LINKS_KEY,
+    queryFn: () => apiFetch("/api/sync/account-links", z.array(syncAccountLinkSchema)),
+  });
+}
+
+/** Link / ignore / unlink a synced account (admin+, server-enforced). */
+export function useUpdateSyncAccountLink() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      syncAccountLinkId,
+      input,
+    }: {
+      syncAccountLinkId: string;
+      input: UpdateSyncAccountLinkInput;
+    }) =>
+      apiFetch(`/api/sync/account-links/${syncAccountLinkId}`, syncAccountLinkSchema, {
+        method: "PATCH",
+        body: updateSyncAccountLinkSchema.parse(input),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: SYNC_ACCOUNT_LINKS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ["imports"] });
     },
   });
 }

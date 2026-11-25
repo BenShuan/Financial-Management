@@ -1,8 +1,8 @@
 # Engineering — tech stack and monorepo
 
 ```yaml
-version: 1.11.0
-last_updated: 2026-11-17
+version: 1.12.0
+last_updated: 2026-11-25
 breaking: "no"
 ```
 
@@ -25,6 +25,7 @@ Single repository with **pnpm** workspaces (Node 20+) and **Turborepo** for buil
 apps/
   api/          # HTTP API only (business rules, authz, persistence)
   web/          # Responsive SPA (mobile + desktop); optional PWA later
+  bank-sync/    # Local-only desktop helper (bank/card auto-fetch); never deployed
 packages/
   shared/       # Types, Zod schemas, constants safe for browser + server
   api-client/   # Optional typed fetch helpers; can be replaced by OpenAPI-generated client later
@@ -42,6 +43,9 @@ New apps (e.g. `apps/admin`) require an update to this document **before** scaff
 | `apps/web` | UI, calls API only | **Vite**, **React 19**, **TypeScript**; **React Router** (`react-router-dom` v7) for client-side routing; **Tailwind CSS** + **shadcn/ui** (Radix); **TanStack Query** for server state; **react-hook-form** + **Zod** (`@hookform/resolvers`) aligned with `packages/shared` |
 | `packages/shared` | Shared validation and types | **TypeScript**, **Zod**; no Node-only imports |
 | `packages/api-client` | Optional HTTP client for the web app | **TypeScript**; hand-written v1, Zod-parse responses using `packages/shared` |
+| `apps/bank-sync` | Local bank/credit-card auto-fetch helper that runs on the user's own computer; **never deployed** (not part of the Render/Vercel builds, no `dev` script so `pnpm dev` does not start it) | **Node >=22.22.2** (this app only; checked at runtime, not via `engines`), **Hono** + `@hono/node-server` serving one Hebrew RTL page on `127.0.0.1`, **`israeli-bank-scrapers-core`** (pinned exactly at `6.13.0`; MIT; puppeteer-core driving the locally installed Chrome/Edge, `FM_BROWSER_PATH` override), credential vault with `node:crypto` (scrypt + AES-256-GCM, no extra deps) |
+
+**Bank sync (v1):** The scraper runs only in `apps/bank-sync`, on the user's computer. Provider credentials are stored encrypted in a local vault (master passphrase) and **never reach the API**: no API endpoint accepts bank credentials. The local app logs in to the API with the normal session (`/api/auth/login`, admin/owner required) and uploads scraped completed transactions to `POST /api/sync/uploads` as signed decimal strings. The API does all normalization (pending/zero/foreign-currency skip, `type` from sign, positive amount, Asia/Jerusalem dates, `bs1:` dedupe key unique per `(account_id, external_ref)`), maps provider account numbers to household accounts through the server-side `sync_account_links` table (linked in the web app), writes a `bank_sync` import batch, recalculates balances and audits. Security model of the local app: binds `127.0.0.1` only, `Host` header check, per-launch token on local routes. Supported providers: **Discount** (bank), **Isracard** and **Max** (cards). Providers that require OTP/2FA (e.g. OneZero) are not supported in v1. Sync is manual ("סנכרן עכשיו"); no scheduled sync.
 
 **Auth (v1):** Server-side **sessions** issued by `apps/api` (decision recorded in the Notion Decisions Log). `POST /api/auth/register|login|logout`; passwords hashed with **scrypt** (Node `crypto`, no native addon). The `fm_session` cookie (HTTP-only; `Secure` + `SameSite=None` in production because web and API are on different sites, `Lax` locally) carries an opaque random token whose SHA-256 is stored in the `sessions` table (30-day expiry). Each request resolves the session to the user's **active household membership** (household + live role); there is no "first household" fallback. State-changing requests whose `Origin` is not in `WEB_ORIGIN` are rejected (CSRF), and failed logins are throttled per email. Enforce household roles **only** on the server (`requireRole`); do not trust client-side checks for authorization. Users created before password auth (e.g. the seeded owner) get a password via `pnpm --filter @financial-management/api db:set-password`.
 
@@ -87,6 +91,7 @@ Limits and pricing change; verify current quotas on each vendor’s site before 
 
 ## Changelog
 
+- `1.12.0` (2026-11-25): Bank and credit-card auto-fetch (FM-29): new local-only app `apps/bank-sync` (Node >=22.22.2, Hono, `israeli-bank-scrapers-core` with local Chrome/Edge, `node:crypto` vault; never deployed). API gains `/api/sync/uploads` and `/api/sync/account-links`; migration `0006` adds `sync_account_links`, enum values `import_source_type.bank_sync`, `bank_sync_provider`, `sync_account_link_status`, and a unique index on `transactions (account_id, external_ref)`.
 - `1.11.0` (2026-11-17): Category and tag management API (create/update/archive/delete); migration `0005` adds the `categories.parent_category_id` self-FK (orphaned parents are promoted to top level first).
 - `1.10.0` (2026-11-17): Household member management API (`/api/household/members`, invite links via `/api/auth/invite-info` and `/api/auth/accept-invite`); migration `0004` adds `household_members.invite_token_hash` / `invite_expires_at`. Added a shared Postgres integration-test harness (`apps/api/src/test/harness.ts`).
 - `1.9.0` (2026-11-17): Added API integration tests that run the ledger SQL of `recalcAccountBalance` against Postgres, and a Postgres service container in CI. The suite is opt-in via `TEST_DATABASE_URL` (skipped when unset, so plain `pnpm test` needs no database).

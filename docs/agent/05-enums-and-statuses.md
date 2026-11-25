@@ -1,9 +1,9 @@
 # Enums and statuses
 
 ```yaml
-version: 2.0.1
-last_updated: 2026-11-17
-breaking: "yes"
+version: 2.1.0
+last_updated: 2026-11-25
+breaking: "no"
 ```
 
 Single source of truth for string enums stored in the database or API. Use **lowercase snake_case** values unless an external integration requires otherwise.
@@ -80,10 +80,19 @@ Single source of truth for string enums stored in the database or API. Use **low
 
 | Enum | Values |
 |------|--------|
-| `ImportBatch.source_type` | `csv`, `manual` |
+| `ImportBatch.source_type` | `csv`, `manual`, `bank_sync` |
 | `ImportBatch.status` | `pending`, `processing`, `completed`, `failed`, `partially_applied` |
 
 New batches go straight to `completed` (import creates transactions immediately); `pending`, `processing`, and `partially_applied` are retained for legacy data only.
+
+## Bank sync
+
+| Enum | Values |
+|------|--------|
+| `BankSyncProvider` (`SyncAccountLink.provider`, upload `provider`) | `discount`, `isracard`, `max` |
+| `SyncAccountLink.status` | `unmapped`, `linked`, `ignored` |
+
+`unmapped` = seen by a sync, not yet linked (default); `linked` = rows import into `account_id`; `ignored` = hidden by an admin, rows never imported. Providers that need OTP (e.g. OneZero) are not supported in v1. Scraped rows with `status = pending` are skipped by the server (never stored).
 
 ---
 

@@ -1,9 +1,9 @@
 # Modules
 
 ```yaml
-version: 2.0.0
-last_updated: 2026-07-02
-breaking: "yes"
+version: 2.1.0
+last_updated: 2026-11-25
+breaking: "no"
 ```
 
 Each module maps to a bounded area of the product. Implementation may split across services or packages later; the **domain boundaries** below stay stable.
@@ -35,6 +35,8 @@ Hierarchical categories (income/expense kinds) **seeded from a default list** at
 ## Import, Normalization & Reconciliation
 
 **Import batches** per account; **raw** then **normalized** rows; **mapping templates** for CSV columns; dedupe fingerprints; promotion to `Transaction` after the **user assigns a category to each row**. **Reconciliation** compares statement ending balance to calculated ledger balance for a date range.
+
+**Bank & card auto-fetch (FM-29):** a local app on the user's computer (`apps/bank-sync`) scrapes completed transactions from Israeli banks/credit cards with the household's own credentials (kept only on that computer) and uploads them; the API maps each provider account number to a household account (`SyncAccountLink`, linked in the web app), normalizes and dedupes the rows, and writes them as a `bank_sync` import batch. Synced transactions are created uncategorized; categorization stays manual.
 
 ## References
 

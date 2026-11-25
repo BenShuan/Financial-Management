@@ -1,8 +1,8 @@
 # Entities and fields
 
 ```yaml
-version: 2.4.0
-last_updated: 2026-11-17
+version: 2.5.0
+last_updated: 2026-11-25
 breaking: "no"
 ```
 
@@ -151,7 +151,7 @@ Server-side login session. The browser holds an opaque random token in an HTTP-o
 | `notes` | no | text | |
 | `import_batch_id` | no | id | FK |
 | `is_recurring_candidate` | no | boolean | hint from pipeline |
-| `external_ref` | no | string | bank/import id |
+| `external_ref` | no | string | bank/import id. For bank sync: the `bs1:` dedupe key (sha256 of provider, account number, identifier, date, amount, type, description, installment; `#n` suffix for identical rows). Unique per `(account_id, external_ref)` (index `transactions_account_external_ref_ux`; NULLs allowed). |
 
 ## TransferLink
 
@@ -336,8 +336,8 @@ Budgets are planned **once per year**; the monthly view is derived, never stored
 | `import_batch_id` | yes | id | PK |
 | `household_id` | yes | id | FK |
 | `account_id` | yes | id | FK |
-| `source_type` | yes | enum | csv / manual |
-| `file_name` | yes | string | |
+| `source_type` | yes | enum | csv / manual / bank_sync |
+| `file_name` | yes | string | CSV file name; for `bank_sync` a source label `"{provider label} • {last 4 of account number}"` (e.g. `דיסקונט • 6789`) |
 | `imported_at` | yes | timestamptz | |
 | `row_count` | yes | int | |
 | `status` | yes | enum | See [05-enums-and-statuses.md](05-enums-and-statuses.md) |
@@ -385,6 +385,26 @@ Budgets are planned **once per year**; the monthly view is derived, never stored
 
 ---
 
+## SyncAccountLink
+
+Server-side mapping of a bank/card provider account (as seen by the local bank-sync app) to a household account. Created automatically the first time an upload mentions the account number; linked by an admin in the web app.
+
+| Field | Required | Type | Notes |
+|-------|----------|------|--------|
+| `sync_account_link_id` | yes | id | PK |
+| `household_id` | yes | id | FK → Household |
+| `provider` | yes | enum | `BankSyncProvider` (discount / isracard / max) |
+| `external_account_number` | yes | string | provider account / card number as scraped (UI shows last 4 only) |
+| `account_id` | no | id | FK → Account (no cascade); set iff `status = linked` |
+| `status` | yes | enum | unmapped / linked / ignored, default unmapped |
+| `first_seen_at` | yes | timestamptz | |
+| `last_seen_at` | yes | timestamptz | updated on every upload that mentions the account |
+| `created_at` | yes | timestamptz | |
+
+Unique `(household_id, provider, external_account_number)`. Only `linked` accounts with an active `Account` get rows imported; `unmapped` and `ignored` accounts get none.
+
+---
+
 ## Invariants (implementation must enforce)
 
 1. **Splits:** For a given `transaction_id`, sum(`TransactionSplit.amount`) equals `Transaction.amount` when one or more splits exist; if no splits, top-level `category_id` may apply.
@@ -393,6 +413,7 @@ Budgets are planned **once per year**; the monthly view is derived, never stored
 4. **Budget actuals:** Derived from transactions in period; do not duplicate spend totals in `BudgetLine`. A line's flow (income or expense) is derived from its category `kind` (transfer-neutral categories cannot be budgeted); income lines track `income` transactions, expense lines track `expense` transactions. Expected profit = planned income − planned expenses; current profit = actual income − actual expenses (derived at read time).
 5. **User-initiated categorization:** `category_id` on `income`/`expense` is optional — NULL means uncategorized (e.g. freshly imported). Manual entry still requires a category or at least one `TransactionSplit` covering the full amount; when splits exist the header `category_id` is NULL. `transfer` legs never carry a category. Categorization is user-initiated only — no system process ever writes `category_id`.
 6. **Annual budgeting:** Budget amounts are planned annually per category. Monthly breakdowns (`planned_amount / 12`) and actuals are derived at read time, never persisted per month.
+7. **Bank credentials never reach the server:** provider credentials live only in the local bank-sync app's encrypted vault. No API endpoint, table, log or audit snapshot may accept or hold them. Bank sync never sets `category_id` (invariant 5 applies).
 
 ## References
 

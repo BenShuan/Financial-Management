@@ -62,7 +62,7 @@ export const DETECTION_CANDIDATE_STATUSES = ["suggested", "accepted", "rejected"
 export const detectionCandidateStatusSchema = z.enum(DETECTION_CANDIDATE_STATUSES);
 export type DetectionCandidateStatus = z.infer<typeof detectionCandidateStatusSchema>;
 
-export const IMPORT_SOURCE_TYPES = ["csv", "manual"] as const;
+export const IMPORT_SOURCE_TYPES = ["csv", "manual", "bank_sync"] as const;
 export const importSourceTypeSchema = z.enum(IMPORT_SOURCE_TYPES);
 export type ImportSourceType = z.infer<typeof importSourceTypeSchema>;
 
@@ -89,3 +89,24 @@ export type ReconciliationStatus = z.infer<typeof reconciliationStatusSchema>;
 export const BALANCE_SNAPSHOT_SOURCES = ["manual", "imported", "system"] as const;
 export const balanceSnapshotSourceSchema = z.enum(BALANCE_SNAPSHOT_SOURCES);
 export type BalanceSnapshotSource = z.infer<typeof balanceSnapshotSourceSchema>;
+
+/** Providers supported by the local bank-sync app (apps/bank-sync); no OTP providers in v1. */
+export const BANK_SYNC_PROVIDERS = ["discount", "isracard", "max"] as const;
+export const bankSyncProviderSchema = z.enum(BANK_SYNC_PROVIDERS);
+export type BankSyncProvider = z.infer<typeof bankSyncProviderSchema>;
+
+export const BANK_SYNC_PROVIDER_LABELS: Record<BankSyncProvider, string> = {
+  discount: "דיסקונט",
+  isracard: "ישראכרט",
+  max: "מקס",
+};
+
+export const BANK_SYNC_PROVIDER_KINDS: Record<BankSyncProvider, "bank" | "card"> = {
+  discount: "bank",
+  isracard: "card",
+  max: "card",
+};
+
+export const SYNC_ACCOUNT_LINK_STATUSES = ["unmapped", "linked", "ignored"] as const;
+export const syncAccountLinkStatusSchema = z.enum(SYNC_ACCOUNT_LINK_STATUSES);
+export type SyncAccountLinkStatus = z.infer<typeof syncAccountLinkStatusSchema>;
