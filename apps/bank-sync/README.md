@@ -31,6 +31,8 @@ The app prints a URL like `http://127.0.0.1:5199/?t=...` and opens it in your br
 4. **סנכרן עכשיו:** scrapes each provider once and uploads the results.
 5. New account/card numbers appear in the web app under **עוד > סנכרון בנקים** (`/sync`). Link each one to an app account (or hide it), then sync again: the app re-scans the same window until every account is linked, so nothing is lost.
 
+Discount: if the bank refuses one account (e.g. closed, savings or no permission), the other accounts are still synced and the report lists the refused account's last 4 digits. (The scraper library alone would fail the whole bank, and it still calls Discount's retired `lastTransactions/<id>/Date` endpoint, which always answers "אין אפשרות לבצע את הפעולה". `src/discount.ts` replaces only its per-account fetch with the current `lastTransactions/transactions/<id>/ByDate` endpoint, following upstream PR #1194; the login is the library's. Drop it once the library ships that fix.)
+
 The first sync looks back 90 days (setting "ימים לסריקה בסנכרון ראשון"); later syncs start 14 days before the last successful one. Re-syncing never creates duplicates. If you imported CSV files earlier, set the first lookback so it starts after your last CSV import: bank sync does not dedupe against CSV rows.
 
 ## Data and environment
@@ -41,7 +43,7 @@ Local data (encrypted `vault.enc.json`, non-secret `config.json`) lives in:
 - macOS: `~/Library/Application Support/fm-bank-sync`
 - Linux: `~/.config/fm-bank-sync`
 
-Optional env vars: `FM_SYNC_PORT` (default 5199; a free port is used if busy), `FM_BROWSER_PATH`, `FM_SHOW_BROWSER=1` (show the browser window, e.g. to debug a provider), `FM_BANK_SYNC_DIR` (data dir override), `FM_API_ORIGIN` (default API URL on the page).
+Optional env vars: `FM_SYNC_PORT` (default 5199; a free port is used if busy), `FM_BROWSER_PATH`, `FM_SHOW_BROWSER=1` (show the browser window, e.g. to debug a provider), `FM_SCRAPER_DEBUG=1` (print the scraper's error type and message to this terminal when a provider fails), `FM_BANK_SYNC_DIR` (data dir override), `FM_API_ORIGIN` (default API URL on the page).
 
 ## Security model
 

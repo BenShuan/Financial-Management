@@ -36,6 +36,8 @@ export interface ProviderReport {
   ok: boolean;
   error: string | null;
   droppedInvalid: number;
+  /** Last 4 digits of accounts the provider refused to return (the others were synced). */
+  failedAccounts: string[];
   cursorAdvanced: boolean;
   accounts: AccountReport[];
 }
@@ -139,6 +141,7 @@ export class SyncRunner {
         ok: false,
         error: null,
         droppedInvalid: 0,
+        failedAccounts: [],
         cursorAdvanced: false,
         accounts: [],
       };
@@ -151,6 +154,9 @@ export class SyncRunner {
         continue;
       }
 
+      // A refused account doesn't hold the cursor: it may be refused forever (e.g. closed), and
+      // later syncs re-scan 14 days back anyway, which covers a one-off refusal.
+      report.failedAccounts = outcome.failedAccounts ?? [];
       const accounts = outcome.accounts.filter((a) => String(a.accountNumber ?? "").trim() !== "");
       let advance = true;
       if (accounts.length > 0) {

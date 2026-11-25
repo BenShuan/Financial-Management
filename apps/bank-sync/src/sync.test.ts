@@ -211,6 +211,24 @@ describe("SyncRunner", () => {
     expect((await configStore.load()).lastSuccessfulSyncAt.discount).toBeUndefined();
   });
 
+  it("syncs only the selected providers", async () => {
+    await setup({ discount: CREDS, max: MAX_CREDS });
+    const scrape = vi.fn<ScrapeFn>(async () => okScrape());
+    const report = await runner(scrape, fakeApi("admin").api).run(["max"]);
+    expect(scrape.mock.calls.map((c) => c[0])).toEqual(["max"]);
+    expect(report.providers.map((p) => p.provider)).toEqual(["max"]);
+    expect((await configStore.load()).lastSuccessfulSyncAt.discount).toBeUndefined();
+  });
+
+  it("reports refused accounts and still advances the cursor", async () => {
+    await setup();
+    const scrape = vi.fn<ScrapeFn>(async () => ({ ...okScrape(), failedAccounts: ["4321"] }) as ScrapeOutcome);
+    const report = await runner(scrape, fakeApi("admin").api).run();
+    expect(report.providers[0]?.failedAccounts).toEqual(["4321"]);
+    expect(report.providers[0]?.ok).toBe(true);
+    expect(report.providers[0]?.cursorAdvanced).toBe(true);
+  });
+
   it("allows only one sync at a time", async () => {
     await setup();
     let release: () => void = () => {};

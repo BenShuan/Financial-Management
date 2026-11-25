@@ -28,11 +28,15 @@ export const MSG = {
   timeout: "תם הזמן להתחברות לאתר הספק. נסו שוב מאוחר יותר.",
   otp: "הספק דורש קוד אימות (OTP), שאינו נתמך בגרסה זו.",
   generic: "שגיאה באתר הספק (ייתכן שהאתר השתנה). נסו לעדכן את האפליקציה.",
-  noBrowser: "לא נמצא דפדפן Chrome או Edge במחשב. ניתן להגדיר נתיב בעזרת FM_BROWSER_PATH.",
+  accountsRefused:
+    "ההתחברות הצליחה, אך הספק סירב להחזיר תנועות לכל החשבונות. נסו שוב מאוחר יותר או בדקו באתר הספק שהחשבון פעיל.",
+  noBrowser:"לא נמצא דפדפן Chrome או Edge במחשב. ניתן להגדיר נתיב בעזרת FM_BROWSER_PATH.",
   local: "שגיאה מקומית בהפעלת הדפדפן. נסו שוב.",
   sessionExpired: "החיבור לשרת פג תוקף. התחברו מחדש.",
   forbidden: "נדרשת הרשאת מנהל במשק הבית כדי להעלות תנועות.",
   notFound: "המשאב המבוקש לא נמצא בשרת.",
+  notApiOrigin:
+    "הכתובת שהוזנה אינה של שרת ה-API (כנראה זו כתובת אתר האינטרנט). יש להזין את כתובת ה-API, למשל http://localhost:8787 בפיתוח או כתובת ה-API ב-Render.",
   tooLarge: "יותר מדי תנועות בסנכרון אחד. יש לקצר את טווח הימים בהגדרות (lookbackDays).",
   network: "לא ניתן להתחבר לשרת.",
   server: "שגיאה בשרת. נסו שוב מאוחר יותר.",
@@ -55,7 +59,8 @@ export function scraperErrorMessage(errorType: string | undefined): string {
   if (code === "ACCOUNT_BLOCKED") return MSG.accountBlocked;
   if (code === "TIMEOUT") return MSG.timeout;
   if (code.includes("TWO_FACTOR") || code.includes("OTP")) return MSG.otp;
-  if (code === "LOCAL_NO_BROWSER") return MSG.noBrowser;
+  if (code === "ACCOUNTS_REFUSED") return MSG.accountsRefused;
+  if (code === "LOCAL_NO_BROWSER")return MSG.noBrowser;
   if (code === "LOCAL_ERROR") return MSG.local;
   return MSG.generic;
 }

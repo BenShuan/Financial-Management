@@ -39,6 +39,8 @@ button.primary { background: var(--primary); color: var(--primary-foreground); b
 button:disabled { opacity: 0.6; cursor: default; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; }
 .row > div { flex: 1 1 200px; }
+.picks { margin-block-end: 12px; }
+.pick { display: inline-flex; align-items: center; gap: 6px; margin-block-start: 0; cursor: pointer; }
 .provider { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-block-start: 12px; }
 .chip { display: inline-block; font-size: 0.8rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border);
   margin-inline-start: 8px; }
@@ -94,10 +96,14 @@ const SCRIPT = `
     return function (ev) {
       if (ev) ev.preventDefault();
       if (busy) return;
-      busy = true; messages[key] = null; render();
+      // Read form values BEFORE render(): render() rebuilds the DOM and would wipe the inputs.
       var body = bodyFn ? bodyFn() : undefined;
+      var form = ev && ev.target && ev.target.tagName === "FORM" ? ev.target : null;
+      var ownIds = form ? Array.prototype.map.call(form.querySelectorAll("input[id]"), function (n) { return n.id; }) : [];
+      busy = true; messages[key] = null; render();
       call(method, path, body).then(function (r) {
         busy = false;
+        if (r.ok) ownIds.forEach(function (id) { delete drafts[id]; });
         messages[key] = r.ok ? (r.data && r.data.warning ? { warn: r.data.warning } : null) : { error: (r.data && r.data.error) || "שגיאה" };
         if (after) after(r);
         return refresh();
@@ -219,12 +225,26 @@ const SCRIPT = `
     return li;
   }
 
+  // Which saved providers the next sync runs. Survives re-renders; new providers start selected.
+  var syncPick = {};
   function syncSection() {
     var s = el("section", null, [el("h2", { text: "סנכרון" })]);
-    var anySaved = state.providers.some(function (p) { return p.saved; });
-    var canSync = state.unlocked && state.session && anySaved && !state.running;
+    var saved = state.providers.filter(function (p) { return p.saved; });
+    saved.forEach(function (p) { if (!(p.id in syncPick)) syncPick[p.id] = true; });
+    var chosen = saved.filter(function (p) { return syncPick[p.id]; }).map(function (p) { return p.id; });
+    if (saved.length) {
+      s.appendChild(el("p", { class: "muted", text: "בחרו אילו ספקים לסנכרן:" }));
+      s.appendChild(el("div", { class: "row picks" }, saved.map(function (p) {
+        var box = el("input", { type: "checkbox", checked: !!syncPick[p.id], disabled: busy,
+          onchange: function (ev) { syncPick[p.id] = ev.target.checked; render(); } });
+        return el("label", { class: "pick" }, [box, " " + p.label]);
+      })));
+    }
+    var canSync = state.unlocked && state.session && chosen.length > 0 && !state.running;
     s.appendChild(el("button", { class: "primary", type: "button", disabled: busy || !canSync,
-      onclick: action("sync", "POST", "/local/sync", function () { return {}; }), text: busy ? "מעבד..." : "סנכרן עכשיו" }));
+      onclick: action("sync", "POST", "/local/sync", function () { return { providers: chosen }; }),
+      text: busy ? "מעבד..." : chosen.length === saved.length ? "סנכרן עכשיו" : "סנכרן את הנבחרים" }));
+    if (saved.length && !chosen.length) s.appendChild(el("p", { class: "muted", text: "יש לבחור לפחות ספק אחד." }));
     if (busy) s.appendChild(el("p", { class: "muted", text: "הפעולה מתבצעת. סנכרון יכול להימשך כמה דקות." }));
     var m = msg("sync"); if (m) s.appendChild(m);
     var rep = state.lastReport;
@@ -237,6 +257,7 @@ const SCRIPT = `
           el("div", { class: "muted", text: "מתאריך " + p.startDate + (p.cursorAdvanced ? "" : " · הסנכרון הבא יסרוק שוב את אותו טווח") })]);
         if (p.error) block.appendChild(el("div", { class: "error", text: p.error }));
         if (p.droppedInvalid) block.appendChild(el("div", { class: "muted", text: p.droppedInvalid + " תנועות ללא תאריך או סכום תקין לא נשלחו" }));
+        if (p.failedAccounts && p.failedAccounts.length) block.appendChild(el("div", { class: "error", text: "הספק סירב להחזיר תנועות לחשבונות המסתיימים ב-" + p.failedAccounts.join(", ") + " (ייתכן שהם סגורים, חשבונות חיסכון או ללא הרשאה). שאר החשבונות סונכרנו." }));
         if (p.accounts.length) block.appendChild(el("ul", { class: "report" }, p.accounts.map(accountLine)));
         else if (p.ok) block.appendChild(el("div", { class: "muted", text: "לא נמצאו חשבונות." }));
         s.appendChild(block);
@@ -245,8 +266,11 @@ const SCRIPT = `
     return s;
   }
 
+  // Values typed into inputs survive re-renders; a form's own values are dropped once it submits successfully.
+  var drafts = {};
   function render() {
     if (!state) return;
+    root.querySelectorAll("input[id]").forEach(function (n) { drafts[n.id] = n.value; });
     root.textContent = "";
     root.appendChild(el("h1", { text: "סנכרון בנקים וכרטיסי אשראי" }));
     root.appendChild(el("p", { class: "lead", text: "האפליקציה פועלת במחשב שלכם בלבד. פרטי הכניסה לבנק נשמרים מוצפנים כאן ולא נשלחים לשרת; לשרת נשלחות רק התנועות." }));
@@ -257,6 +281,7 @@ const SCRIPT = `
       root.appendChild(settingsSection());
       root.appendChild(syncSection());
     }
+    root.querySelectorAll("input[id]").forEach(function (n) { if (n.id in drafts) n.value = drafts[n.id]; });
   }
 
   refresh();

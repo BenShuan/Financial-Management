@@ -98,6 +98,8 @@ export async function login(fetchFn: FetchFn, origin: string, email: string, pas
     body: JSON.stringify({ email, password }),
   });
   if (res.status === 401) throw new ApiError(401, (await serverMessage(res)) ?? "אימייל או סיסמה שגויים");
+  // 404/405 here almost always means the origin is the web app (Vite/Vercel), not the API server.
+  if (res.status === 404 || res.status === 405) throw new ApiError(res.status, MSG.notApiOrigin);
   const context = await parseOk(res, sessionContextSchema);
   const cookie = readSessionCookie(res.headers.getSetCookie());
   if (!cookie) throw new ApiError(res.status, MSG.badResponse);
