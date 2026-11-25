@@ -21,7 +21,7 @@ describe("Vault", () => {
     const v = new Vault(file, FAST);
     await v.create("correct horse");
     await v.update((d) => {
-      d.providers.discount = { id: "012345678", password: "SuperSecret!1", num: "AB12" };
+      d.providers.discount = { id: "012345678", password: "dummy-vault-pw", num: "AB12" };
       d.session = { apiOrigin: "https://api.example", token: "tok-abc-123", expiresAt: "2030-01-01T00:00:00.000Z", email: "a@b.co" };
     });
     v.lock();
@@ -29,11 +29,11 @@ describe("Vault", () => {
     expect(() => v.get()).toThrow(VaultError);
 
     const raw = await readFile(file, "utf8");
-    for (const secret of ["SuperSecret!1", "012345678", "tok-abc-123", "AB12"]) expect(raw).not.toContain(secret);
+    for (const secret of ["dummy-vault-pw", "012345678", "tok-abc-123", "AB12"]) expect(raw).not.toContain(secret);
 
     const v2 = new Vault(file, FAST);
     await v2.unlock("correct horse");
-    expect(v2.get().providers.discount?.password).toBe("SuperSecret!1");
+    expect(v2.get().providers.discount?.password).toBe("dummy-vault-pw");
     expect(v2.get().session?.token).toBe("tok-abc-123");
   });
 

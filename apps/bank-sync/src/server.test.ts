@@ -80,11 +80,11 @@ describe("write-only credentials", () => {
 
     const save = await req("/local/providers/discount", {
       method: "PUT",
-      body: { id: "012345678", password: "Pa$$w0rd-SECRET", num: "XY99" },
+      body: { id: "012345678", password: "dummy-bank-pw", num: "XY99" },
     });
     expect(save.status).toBe(200);
     const saveText = await save.text();
-    expect(saveText).not.toContain("Pa$$w0rd-SECRET");
+    expect(saveText).not.toContain("dummy-bank-pw");
 
     fetchFn.mockResolvedValueOnce(
       new Response(
@@ -98,17 +98,17 @@ describe("write-only credentials", () => {
     );
     const login = await req("/local/login", {
       method: "POST",
-      body: { apiOrigin: "https://api.example/", email: "a@b.co", password: "AppPass-123" },
+      body: { apiOrigin: "https://api.example/", email: "a@b.co", password: "dummy-app-pw" },
     });
     expect(login.status).toBe(200);
     const loginText = await login.text();
     expect(loginText).not.toContain("session-token-XYZ");
     const [, init] = fetchFn.mock.calls[0] as [string, RequestInit];
     expect(fetchFn.mock.calls[0]?.[0]).toBe("https://api.example/api/auth/login");
-    expect(String(init.body)).toContain("AppPass-123");
+    expect(String(init.body)).toContain("dummy-app-pw");
 
     const state = await (await req("/local/state")).text();
-    for (const secret of ["Pa$$w0rd-SECRET", "012345678", "XY99", "session-token-XYZ", "AppPass-123", "correct horse"]) {
+    for (const secret of ["dummy-bank-pw", "012345678", "XY99", "session-token-XYZ", "dummy-app-pw", "correct horse"]) {
       expect(state).not.toContain(secret);
     }
     const parsed = JSON.parse(state) as { providers: { id: string; saved: boolean }[]; session: { email: string } };

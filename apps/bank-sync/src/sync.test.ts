@@ -19,8 +19,8 @@ import { Vault } from "./vault.js";
 const FAST = { N: 2 ** 10, r: 8, p: 1 };
 const NOW = new Date("2024-06-01T10:00:00.000Z");
 const UUID = "11111111-1111-4111-8111-111111111111";
-const CREDS = { id: "012345678", password: "Pa$$w0rd-SECRET", num: "XY99" };
-const MAX_CREDS = { username: "maxuser", password: "MaxSecret-77" };
+const CREDS = { id: "012345678", password: "dummy-bank-pw", num: "XY99" };
+const MAX_CREDS = { username: "maxuser", password: "dummy-card-pw" };
 
 let dir: string;
 let vault: Vault;
