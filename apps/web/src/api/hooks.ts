@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   accountSchema,
@@ -6,6 +6,7 @@ import {
   budgetCategoryHistorySchema,
   budgetPeriodSchema,
   bulkCategorizeSchema,
+  createAccountSchema,
   categorySchema,
   createBudgetPeriodSchema,
   createImportBatchSchema,
@@ -27,11 +28,13 @@ import {
   syncAccountLinkSchema,
   tagSchema,
   transactionSchema,
+  updateAccountSchema,
   updateBudgetPeriodSchema,
   updateCategorySchema,
   updateTagSchema,
   updateTransactionSchema,
   type BulkCategorizeInput,
+  type CreateAccountInput,
   type CreateBudgetPeriodInput,
   type CreateImportBatchInput,
   type CreateReconciliationSessionInput,
@@ -40,6 +43,7 @@ import {
   type CreateTransactionInput,
   type HouseholdRole,
   type InviteMemberInput,
+  type UpdateAccountInput,
   type UpdateBudgetPeriodInput,
   type UpdateCategoryInput,
   type UpdateTagInput,
@@ -68,6 +72,36 @@ export function useAccount(accountId: string | undefined) {
     queryKey: ["accounts", accountId],
     queryFn: () => apiFetch(`/api/accounts/${accountId}`, accountSchema),
     enabled: Boolean(accountId),
+  });
+}
+
+/** Account edits move balances, so the dashboard totals go stale too. */
+function invalidateAccounts(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+  void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+}
+
+export function useCreateAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateAccountInput) =>
+      apiFetch("/api/accounts", accountSchema, {
+        method: "POST",
+        body: createAccountSchema.parse(input),
+      }),
+    onSuccess: () => invalidateAccounts(queryClient),
+  });
+}
+
+export function useUpdateAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountId, ...input }: UpdateAccountInput & { accountId: string }) =>
+      apiFetch(`/api/accounts/${accountId}`, accountSchema, {
+        method: "PATCH",
+        body: updateAccountSchema.parse(input),
+      }),
+    onSuccess: () => invalidateAccounts(queryClient),
   });
 }
 

@@ -10,6 +10,7 @@ import { createRouter } from "../lib/router.js";
 import { db } from "../db/index.js";
 import { accounts } from "../db/schema.js";
 import { emitAuditEvent } from "../lib/audit.js";
+import { recalcAccountBalance } from "../lib/balance.js";
 import { requireRole } from "../middleware/auth.js";
 
 type AccountRow = typeof accounts.$inferSelect;
@@ -173,13 +174,27 @@ accountsRouter.openapi(
       .where(eq(accounts.accountId, accountId))
       .returning();
     if (!row) throw new HTTPException(500, { message: "עדכון החשבון נכשל" });
+    // current_balance derives from opening_balance + ledger, so recompute it server-side.
+    const currentBalance =
+      input.openingBalance !== undefined ? await recalcAccountBalance(accountId) : row.currentBalance;
+    const updated = { ...row, currentBalance };
     await emitAuditEvent(auth, {
       actionType: "account.updated",
       entityType: "account",
       entityId: accountId,
-      before: { name: before.name, isActive: before.isActive },
-      after: { name: row.name, isActive: row.isActive },
+      before: {
+        name: before.name,
+        isActive: before.isActive,
+        openingBalance: before.openingBalance,
+        currentBalance: before.currentBalance,
+      },
+      after: {
+        name: updated.name,
+        isActive: updated.isActive,
+        openingBalance: updated.openingBalance,
+        currentBalance: updated.currentBalance,
+      },
     });
-    return c.json(serializeAccount(row));
+    return c.json(serializeAccount(updated));
   },
 );

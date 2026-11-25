@@ -1,7 +1,7 @@
 # Workflows
 
 ```yaml
-version: 2.3.0
+version: 2.3.1
 last_updated: 2026-11-25
 breaking: "no"
 ```
@@ -17,6 +17,7 @@ breaking: "no"
    - The **last active owner** cannot be removed or demoted.
    - Emit `AuditEvent` for `household.member_invited`, `household.invite_accepted`, `household.member_role_changed` and `household.member_removed`.
 4. Create initial `Account` rows with `opening_balance` (and optionally first `AccountBalanceSnapshot`).
+   - Admins can later edit or archive accounts (`is_active = false`; no delete). Changing `opening_balance` recalculates `current_balance` on the server. Archived accounts can be restored.
 
 ## Categories and tags
 
